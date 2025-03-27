@@ -60,7 +60,7 @@ class GameElement {
           for (let i = 0; i < frameCount; i++) {
             rub.move_to(i);
             const frameCanvas = rub.get_canvas();
-            const delay = 300;
+            const delay = 500;
             const frameImage = new Image();
             frameImage.src = frameCanvas.toDataURL();
             this.frames.push(frameImage);
@@ -115,8 +115,6 @@ class Avatar extends GameElement {
   move(dx, dy, gameState) {
     const newX = this.x + dx;
     const newY = this.y + dy;
-
-    // Check for collisions
     const sprite = gameState.sprites.find(
       (sprite) => sprite.x === newX && sprite.y === newY
     );
@@ -124,7 +122,6 @@ class Avatar extends GameElement {
       sprite.interact(gameState);
       return false;
     }
-
     const item = gameState.items.find(
       (item) => item.x === newX && item.y === newY && !item.collected
     );
