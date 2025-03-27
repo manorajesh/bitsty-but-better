@@ -18,6 +18,7 @@ class GameState {
     this.dialog = null;
     this.lastTimestamp = 0;
     this.titleScreen = null;
+    this.endingScreen = null;
     this.gameStarted = false;
     this.debugMode = isDebugMode();
 
@@ -29,15 +30,39 @@ class GameState {
       .map(() => Array(WORLD_SIZE).fill(0));
   }
 
+  showEndingScreen() {
+    this.endingScreen = new TitleScreen(
+      "Congratulations!",
+      "You finished the game!",
+      "Press ESC to return to the title screen"
+    );
+
+    this.endingScreen.visible = true;
+  }
+
+  gameLoop(timestamp) {
+    const deltaTime = timestamp - (this.lastTimestamp || timestamp);
+    this.lastTimestamp = timestamp;
+
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.imageSmoothingEnabled = false;
+
+    // If the ending screen is visible, only draw that
+    if (this.endingScreen != null && this.endingScreen.visible) {
+      this.endingScreen.update(timestamp);
+      this.endingScreen.draw(this.ctx);
+      requestAnimationFrame((ts) => this.gameLoop(ts));
+      return;
+    }
+  }
+
   async initialize() {
-    // Create title screen first
     this.titleScreen = new TitleScreen(
       "bitsy but better",
       "a little fun demo",
       "Press ENTER to start"
     );
 
-    // Load world and other assets in the background
     await this.loadWorld("images/world.gif");
 
     this.avatar = new Avatar(8, 8, "images/avatar.gif");
@@ -45,7 +70,7 @@ class GameState {
       new Item(12, 12, "images/coin.png", "coin", "You picked up a coin!")
     );
     this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
-
+    this.worldTiles.push(new ExitTile(15, 15, "images/exit.png"));
     this.centerViewportOnAvatar();
 
     this.setupInputHandlers();
@@ -112,7 +137,6 @@ class GameState {
   }
 
   centerViewportOnAvatar() {
-    // Center the viewport on the avatar
     this.viewportX = Math.max(
       0,
       Math.min(
@@ -131,13 +155,11 @@ class GameState {
 
   setupInputHandlers() {
     window.addEventListener("keydown", (e) => {
-      // Handle title screen input
       if (this.titleScreen && this.titleScreen.visible) {
         if (e.code === "Enter" || e.code === "Space") {
           this.titleScreen.visible = false;
           this.gameStarted = true;
 
-          // Show initial dialog when starting game
           if (!this.gameStarted) {
             this.dialog = new DialogBox(
               "Welcome to the game! Use arrow keys to move."
@@ -149,7 +171,15 @@ class GameState {
         return; // Don't process other inputs when on title screen
       }
 
-      // Handle dialog
+      // Handle ending screen input
+      if (this.endingScreen && this.endingScreen.visible) {
+        if (e.code === "Escape") {
+          this.endingScreen.visible = false;
+          this.showTitleScreen();
+        }
+        return;
+      }
+
       if (this.dialog) {
         if (!this.dialog.readyToContinue) {
           this.dialog.skip();
@@ -279,7 +309,6 @@ class GameState {
     );
   }
 
-  // Method to show title screen again (for game over or menu)
   showTitleScreen() {
     if (this.titleScreen) {
       this.titleScreen.visible = true;

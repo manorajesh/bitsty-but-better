@@ -129,7 +129,16 @@ class Avatar extends GameElement {
       item.collect(gameState);
       this.inventory.push(item);
     }
-
+    const tile = gameState.worldTiles.find(
+      (tile) => tile.x === newX && tile.y === newY
+    );
+    if (tile) {
+      if (tile instanceof ExitTile) {
+        tile.interact(gameState); // Trigger the ending screen
+      } else if (tile.isWall) {
+        return false; // Block movement if it's a wall
+      }
+    }
     // worldTiles is a 1D array, so we need to convert 2D coordinates to 1D
     const wallTile = gameState.worldTiles.find(
       (tile) => tile.x === newX && tile.y === newY && tile.isWall
@@ -188,6 +197,32 @@ class Item extends GameElement {
     if (!this.collected) {
       super.draw(ctx, viewportX, viewportY);
     }
+  }
+}
+
+class ExitTile extends Tile {
+  constructor(x, y, imageUrl) {
+    super(x, y, imageUrl, false); // Not a wall
+    this.image = new Image();
+    this.image.src = imageUrl; // Load the image
+  }
+
+  interact(gameState) {
+    gameState.showEndingScreen(); // Trigger the ending screen
+  }
+  draw(ctx, viewportX = 0, viewportY = 0) {
+    const screenX = (this.x - viewportX) * CELL_SIZE;
+    const screenY = (this.y - viewportY) * CELL_SIZE;
+
+    // Draw the red background
+    ctx.fillStyle = "red";
+    ctx.fillRect(screenX, screenY, CELL_SIZE, CELL_SIZE);
+
+    // Draw the label "EXIT"
+    ctx.fillStyle = "white";
+    ctx.font = "12px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("EXIT", screenX + CELL_SIZE / 2, screenY + CELL_SIZE / 2 + 4);
   }
 }
 
