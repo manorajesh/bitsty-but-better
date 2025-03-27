@@ -66,7 +66,7 @@ class GameElement {
           for (let i = 0; i < frameCount; i++) {
             rub.move_to(i);
             const frameCanvas = rub.get_canvas();
-            const delay = rub.delay;
+            const delay = 300;
 
             // Store frame and its delay
             const frameImage = new Image();
