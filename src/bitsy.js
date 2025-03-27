@@ -2,6 +2,11 @@ let GRID_SIZE = 16;
 const WORLD_SIZE = 256;
 let CELL_SIZE;
 
+function isDebugMode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get("debug") === "true";
+}
+
 class GameState {
   constructor() {
     this.canvas = document.getElementById("gameCanvas");
