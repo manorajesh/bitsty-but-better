@@ -197,7 +197,7 @@ class Item extends GameElement {
 // --- Dialog/Text Effect ---
 class DialogBox extends GameElement {
   constructor(text, isColor = false, isRipple = false) {
-    super(0, 0, null); // Position doesn't matter for DialogBox
+    super(0, 0, null);
     this.text = text;
     this.words = text.split(" ");
     this.lines = [];
@@ -227,18 +227,14 @@ class DialogBox extends GameElement {
     if (line) this.lines.push(line);
   }
 
-  // Override the update method from GameElement
   update(timestamp) {
     // Call parent update for any frame-related animation
     super.update(timestamp);
 
-    // Calculate deltaTime internally so animations are consistent
     const deltaTime = timestamp - (this.lastDialogUpdate || timestamp);
     this.lastDialogUpdate = timestamp;
 
-    // Always update animation values regardless of dialog state
     if (this.isRipple || this.isColor) {
-      // Use timestamp to make animations consistent regardless of frame rate
       this.rippleProgress += deltaTime * 0.003;
     }
 
@@ -266,13 +262,11 @@ class DialogBox extends GameElement {
   getRippleOffset(index) {
     const frequency = 0.2;
     const amplitude = 5;
-    // Use rippleProgress for continuous animation
     return Math.sin(frequency * index + this.rippleProgress) * amplitude;
   }
 
   getRainbowColor(index) {
     const frequency = 0.3;
-    // Use rippleProgress to make colors flow over time
     const red = Math.sin(frequency * index + this.rippleProgress) * 127 + 128;
     const green =
       Math.sin(frequency * (index + this.rippleProgress * 0.7) + 2) * 127 + 128;
@@ -288,11 +282,11 @@ class DialogBox extends GameElement {
 
     // Draw semi-transparent dialog background at the bottom
     const boxHeight = 100;
-    const boxY = canvasHeight - boxHeight - 10;
+    const boxY = canvasHeight - boxHeight - 20;
     ctx.fillStyle = "rgba(0,0,0,0.7)";
     ctx.fillRect(10, boxY, canvasWidth - 20, boxHeight);
 
-    ctx.font = "16px monospace";
+    ctx.font = "30px BitsyFont";
 
     for (let i = 0; i <= this.currentLine; i++) {
       const textToDraw =
@@ -300,27 +294,24 @@ class DialogBox extends GameElement {
           ? this.lines[i].substring(0, this.currentChar)
           : this.lines[i];
 
-      let x = 20; // Starting x position for text
-      const baseY = boxY + 30 + i * 20;
+      let x = 30;
+      const baseY = boxY + 40 + i * 30;
 
       for (let j = 0; j < textToDraw.length; j++) {
         const char = textToDraw[j];
 
-        // Set color for each character - now animated with rippleProgress
         if (this.isColor) {
           ctx.fillStyle = this.getRainbowColor(j);
         } else {
           ctx.fillStyle = "white";
         }
 
-        // Apply ripple effect - now animated with rippleProgress
         const yOffset = this.isRipple ? this.getRippleOffset(j) : 0;
         ctx.fillText(char, x, baseY + yOffset);
         x += ctx.measureText(char).width;
       }
     }
 
-    // Draw an arrow if the current line is complete
     if (this.readyToContinue) {
       ctx.fillStyle = "white";
       ctx.fillText(">>", canvasWidth - 40, boxY + boxHeight - 10);
