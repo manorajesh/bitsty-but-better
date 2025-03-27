@@ -9,6 +9,9 @@ class GameElement {
     this.lastFrame = 0;
     this.loaded = false;
     this.isGif = false;
+    this.tileIndex = 0;
+    this.onLoad = null;
+    this.inventory = [];
 
     if (imageUrl) {
       this.loadImage(imageUrl);
@@ -84,28 +87,61 @@ class GameElement {
     }
   }
 
-  draw(ctx) {
+  // Updated draw method to account for viewport offset
+  draw(ctx, viewportX = 0, viewportY = 0) {
     if (this.loaded && this.frames.length > 0) {
-      ctx.drawImage(
-        this.frames[this.currentFrame],
-        this.x * CELL_SIZE,
-        this.y * CELL_SIZE,
-        CELL_SIZE,
-        CELL_SIZE
-      );
+      const screenX = (this.x - viewportX) * CELL_SIZE;
+      const screenY = (this.y - viewportY) * CELL_SIZE;
+
+      if (
+        screenX >= -CELL_SIZE &&
+        screenX <= ctx.canvas.width &&
+        screenY >= -CELL_SIZE &&
+        screenY <= ctx.canvas.height
+      ) {
+        ctx.drawImage(
+          this.frames[this.currentFrame],
+          screenX,
+          screenY,
+          CELL_SIZE,
+          CELL_SIZE
+        );
+      }
     }
   }
 }
 
 // Player character that can move
 class Avatar extends GameElement {
-  move(dx, dy) {
+  move(dx, dy, gameState) {
     const newX = this.x + dx;
     const newY = this.y + dy;
-    if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE) {
+
+    // Check for collision with sprites
+    const sprite = gameState.sprites.find(
+      (sprite) => sprite.x === newX && sprite.y === newY
+    );
+    if (sprite) {
+      sprite.interact(gameState);
+      return false;
+    }
+
+    // Check for collision with items
+    const item = gameState.items.find(
+      (item) => item.x === newX && item.y === newY && !item.collected
+    );
+    if (item) {
+      item.collect(gameState);
+      this.inventory.push(item);
+    }
+
+    // Check world boundaries, not just viewport
+    if (newX >= 0 && newX < WORLD_SIZE && newY >= 0 && newY < WORLD_SIZE) {
       this.x = newX;
       this.y = newY;
+      return true;
     }
+    return false;
   }
 }
 
@@ -123,23 +159,34 @@ class Sprite extends GameElement {
     super(x, y, imageUrl);
     this.dialog = dialog;
   }
+  interact(gameState) {
+    gameState.dialog = new DialogBox(this.dialog);
+  }
 }
 
 // Collectible elements
 class Item extends GameElement {
-  constructor(x, y, imageUrl, type) {
+  constructor(x, y, imageUrl, type, dialog = null) {
     super(x, y, imageUrl);
     this.type = type;
     this.collected = false;
+    this.dialog = dialog;
   }
 
-  collect() {
+  collect(gameState) {
     this.collected = true;
+    if (this.dialog) {
+      this.interact(gameState);
+    }
   }
 
-  draw(ctx) {
+  interact(gameState) {
+    gameState.dialog = new DialogBox(this.dialog);
+  }
+
+  draw(ctx, viewportX = 0, viewportY = 0) {
     if (!this.collected) {
-      super.draw(ctx);
+      super.draw(ctx, viewportX, viewportY);
     }
   }
 }
