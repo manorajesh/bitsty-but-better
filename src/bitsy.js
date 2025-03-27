@@ -266,25 +266,29 @@ class GameState {
       let moved = false;
       switch (e.code) {
         case "ArrowUp":
+        case "KeyW":
           moved = this.avatar.move(0, -1, this);
           break;
         case "ArrowDown":
+        case "KeyS":
           moved = this.avatar.move(0, 1, this);
           break;
         case "ArrowLeft":
+        case "KeyA":
           moved = this.avatar.move(-1, 0, this);
           break;
         case "ArrowRight":
+        case "KeyD":
           moved = this.avatar.move(1, 0, this);
           break;
-        case "KeyA": // Zoom in
+        case "KeyE": // Zoom in
           if (GRID_SIZE > 4) {
             GRID_SIZE -= 4;
             this.resizeCanvas();
             this.centerViewportOnAvatar();
           }
           break;
-        case "KeyD": // Zoom out
+        case "KeyQ": // Zoom out
           if (GRID_SIZE < WORLD_SIZE) {
             GRID_SIZE += 4;
             this.resizeCanvas();
