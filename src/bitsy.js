@@ -12,6 +12,8 @@ class GameState {
     this.items = [];
     this.dialog = null;
     this.lastTimestamp = 0;
+    this.titleScreen = null;
+    this.gameStarted = false;
 
     this.viewportX = 0;
     this.viewportY = 0;
@@ -22,6 +24,14 @@ class GameState {
   }
 
   async initialize() {
+    // Create title screen first
+    this.titleScreen = new TitleScreen(
+      "bitsy but better",
+      "a little fun demo",
+      "Press ENTER to start"
+    );
+
+    // Load world and other assets in the background
     await this.loadWorld("images/world.gif");
 
     this.avatar = new Avatar(8, 8, "images/avatar.gif");
@@ -31,8 +41,6 @@ class GameState {
     this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
 
     this.centerViewportOnAvatar();
-
-    this.dialog = new DialogBox("Welcome to the game! Use arrow keys to move.");
 
     this.setupInputHandlers();
     this.resizeCanvas();
@@ -117,6 +125,25 @@ class GameState {
 
   setupInputHandlers() {
     window.addEventListener("keydown", (e) => {
+      // Handle title screen input
+      if (this.titleScreen && this.titleScreen.visible) {
+        if (e.code === "Enter" || e.code === "Space") {
+          this.titleScreen.visible = false;
+          this.gameStarted = true;
+
+          // Show initial dialog when starting game
+          if (!this.gameStarted) {
+            this.dialog = new DialogBox(
+              "Welcome to the game! Use arrow keys to move."
+            );
+            this.gameStarted = true;
+          }
+          return;
+        }
+        return; // Don't process other inputs when on title screen
+      }
+
+      // Handle dialog
       if (this.dialog) {
         if (!this.dialog.readyToContinue) {
           this.dialog.skip();
@@ -129,6 +156,7 @@ class GameState {
         return;
       }
 
+      // Handle game controls
       let moved = false;
       switch (e.code) {
         case "ArrowUp":
@@ -156,6 +184,9 @@ class GameState {
             this.resizeCanvas();
             this.centerViewportOnAvatar();
           }
+          break;
+        case "Escape": // Return to title screen
+          this.showTitleScreen();
           break;
       }
 
@@ -189,9 +220,16 @@ class GameState {
 
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.imageSmoothingEnabled = false;
+
+    // If title screen is visible, only draw that
+    if (this.titleScreen && this.titleScreen.visible) {
+      this.titleScreen.update(timestamp);
+      this.titleScreen.draw(this.ctx);
+      requestAnimationFrame((ts) => this.gameLoop(ts));
+      return;
+    }
     this.drawGrid();
 
-    // Draw only tiles that are within the viewport
     this.worldTiles.forEach((tile) => {
       if (this.isInViewport(tile.x, tile.y)) {
         tile.update(timestamp);
@@ -214,7 +252,6 @@ class GameState {
       }
     });
 
-    // Draw avatar with viewport offset
     this.avatar.update(timestamp);
     this.avatar.draw(this.ctx, this.viewportX, this.viewportY);
 
@@ -234,6 +271,13 @@ class GameState {
       y >= this.viewportY &&
       y < this.viewportY + GRID_SIZE
     );
+  }
+
+  // Method to show title screen again (for game over or menu)
+  showTitleScreen() {
+    if (this.titleScreen) {
+      this.titleScreen.visible = true;
+    }
   }
 }
 

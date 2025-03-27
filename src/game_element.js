@@ -336,3 +336,124 @@ class DialogBox extends GameElement {
     return false;
   }
 }
+
+// Title Screen for the game
+class TitleScreen extends GameElement {
+  constructor(title, subtitle = "", instructions = "") {
+    super(0, 0, null); // Position doesn't matter for centered elements
+    this.title = title;
+    this.subtitle = subtitle;
+    this.instructions = instructions;
+    this.visible = true;
+    this.animationProgress = 0;
+    this.alpha = 1.0; // For fade transitions
+
+    // Optional decorative elements
+    this.decorations = [];
+    for (let i = 0; i < 20; i++) {
+      this.decorations.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 5 + 2,
+        speed: Math.random() * 0.5 + 0.1,
+      });
+    }
+  }
+
+  update(timestamp) {
+    super.update(timestamp);
+    const deltaTime = timestamp - (this.lastTitleUpdate || timestamp);
+    this.lastTitleUpdate = timestamp;
+
+    // Update animation values
+    this.animationProgress += deltaTime * 0.001;
+
+    // Update decoration positions
+    this.decorations.forEach((dot) => {
+      dot.y = (dot.y + dot.speed * deltaTime * 0.001) % 1;
+    });
+  }
+
+  draw(ctx, viewportX = 0, viewportY = 0) {
+    if (!this.visible) return;
+
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+
+    // Draw opaque background
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Draw decorative animated elements (subtle pixel stars)
+    ctx.fillStyle = "#333";
+    this.decorations.forEach((dot) => {
+      ctx.fillRect(
+        dot.x * canvasWidth,
+        dot.y * canvasHeight,
+        dot.size,
+        dot.size
+      );
+    });
+
+    // Draw title with slight animation effect
+    const titleY = canvasHeight * 0.35;
+    const titleOffset = Math.sin(this.animationProgress * 2) * 3;
+
+    ctx.font = "40px BitsyFont, monospace";
+    ctx.fillStyle = "#FFF";
+
+    // Center align text
+    const titleWidth = ctx.measureText(this.title).width;
+    ctx.fillText(
+      this.title,
+      (canvasWidth - titleWidth) / 2,
+      titleY + titleOffset
+    );
+
+    // Draw subtitle
+    if (this.subtitle) {
+      ctx.font = "24px BitsyFont, monospace";
+      const subtitleWidth = ctx.measureText(this.subtitle).width;
+      ctx.fillText(
+        this.subtitle,
+        (canvasWidth - subtitleWidth) / 2,
+        titleY + 60
+      );
+    }
+
+    // Draw instructions with pulsing effect
+    if (this.instructions) {
+      // Pulse effect - alpha oscillates between 0.3 and 1.0
+      const pulse = Math.sin(this.animationProgress * 4) * 0.35 + 0.65;
+      ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+      ctx.font = "18px BitsyFont, monospace";
+      const instructionsWidth = ctx.measureText(this.instructions).width;
+      ctx.fillText(
+        this.instructions,
+        (canvasWidth - instructionsWidth) / 2,
+        canvasHeight * 0.7
+      );
+    }
+
+    // Draw a decorative border
+    const borderWidth = Math.min(canvasWidth, canvasHeight) * 0.8;
+    const borderHeight = Math.min(canvasWidth, canvasHeight) * 0.6;
+    const borderX = (canvasWidth - borderWidth) / 2;
+    const borderY = (canvasHeight - borderHeight) / 2;
+
+    ctx.strokeStyle = "#FFF";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(borderX, borderY, borderWidth, borderHeight);
+
+    // Draw inner border with animation
+    const innerPulse = Math.sin(this.animationProgress * 2) * 5 + 10;
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+      borderX + innerPulse,
+      borderY + innerPulse,
+      borderWidth - innerPulse * 2,
+      borderHeight - innerPulse * 2
+    );
+  }
+}
