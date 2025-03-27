@@ -2,8 +2,6 @@
 const GRID_SIZE = 16;
 let CELL_SIZE;
 
-// --- Game State Management with Dialog Integration ---
-
 class GameState {
   constructor() {
     this.canvas = document.getElementById("gameCanvas");
