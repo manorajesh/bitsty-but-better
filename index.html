@@ -7,10 +7,18 @@
     <script src="libgif/rubbable.js"></script>
     <script src="src/game_element.js"></script>
     <style>
+      @font-face {
+        font-family: "BitsyFont";
+        src: url("./fonts/pixel.ttf") format("truetype");
+        font-weight: normal;
+        font-style: normal;
+      }
+
       body {
         margin: 0;
         overflow: hidden;
         background: #000;
+        font-family: "BitsyFont", monospace;
       }
       canvas {
         display: block;
@@ -20,6 +28,12 @@
   </head>
   <body>
     <canvas id="gameCanvas"></canvas>
+    <!-- <audio
+      id="backgroundAudio"
+      src="./music.m4a?nocache=true"
+      autoplay
+      loop
+    ></audio> -->
     <script src="src/bitsy.js"></script>
   </body>
 </html>
