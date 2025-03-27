@@ -111,13 +111,12 @@ class GameElement {
   }
 }
 
-// Player character that can move
 class Avatar extends GameElement {
   move(dx, dy, gameState) {
     const newX = this.x + dx;
     const newY = this.y + dy;
 
-    // Check for collision with sprites
+    // Check for collisions
     const sprite = gameState.sprites.find(
       (sprite) => sprite.x === newX && sprite.y === newY
     );
@@ -126,13 +125,20 @@ class Avatar extends GameElement {
       return false;
     }
 
-    // Check for collision with items
     const item = gameState.items.find(
       (item) => item.x === newX && item.y === newY && !item.collected
     );
     if (item) {
       item.collect(gameState);
       this.inventory.push(item);
+    }
+
+    // worldTiles is a 1D array, so we need to convert 2D coordinates to 1D
+    const wallTile = gameState.worldTiles.find(
+      (tile) => tile.x === newX && tile.y === newY && tile.isWall
+    );
+    if (wallTile) {
+      return;
     }
 
     // Check world boundaries, not just viewport
@@ -145,26 +151,23 @@ class Avatar extends GameElement {
   }
 }
 
-// Static background elements
 class Tile extends GameElement {
-  constructor(x, y, imageUrl, walkable = true) {
+  constructor(x, y, imageUrl, isWall = false) {
     super(x, y, imageUrl);
-    this.walkable = walkable;
+    this.isWall = isWall;
   }
 }
 
-// Animated elements that don't move
 class Sprite extends GameElement {
   constructor(x, y, imageUrl, dialog) {
     super(x, y, imageUrl);
     this.dialog = dialog;
   }
   interact(gameState) {
-    gameState.dialog = new DialogBox(this.dialog);
+    gameState.dialog = new DialogBox(this.dialog, true, true);
   }
 }
 
-// Collectible elements
 class Item extends GameElement {
   constructor(x, y, imageUrl, type, dialog = null) {
     super(x, y, imageUrl);
@@ -181,7 +184,7 @@ class Item extends GameElement {
   }
 
   interact(gameState) {
-    gameState.dialog = new DialogBox(this.dialog);
+    gameState.dialog = new DialogBox(this.dialog, false, true);
   }
 
   draw(ctx, viewportX = 0, viewportY = 0) {
@@ -192,18 +195,21 @@ class Item extends GameElement {
 }
 
 // --- Dialog/Text Effect ---
-
-class DialogBox {
-  constructor(text) {
+class DialogBox extends GameElement {
+  constructor(text, isColor = false, isRipple = false) {
+    super(0, 0, null); // Position doesn't matter for DialogBox
     this.text = text;
     this.words = text.split(" ");
     this.lines = [];
     this.currentLine = 0;
     this.currentChar = 0;
     this.timer = 0;
-    this.charDelay = 50; // milliseconds per character
+    this.charDelay = 50;
     this.readyToContinue = false;
-    this.isSkipped = false; // Add this new property
+    this.isSkipped = false;
+    this.isColor = isColor;
+    this.isRipple = isRipple;
+    this.rippleProgress = 0;
     this.prepareDialog();
   }
 
@@ -221,7 +227,21 @@ class DialogBox {
     if (line) this.lines.push(line);
   }
 
-  update(deltaTime) {
+  // Override the update method from GameElement
+  update(timestamp) {
+    // Call parent update for any frame-related animation
+    super.update(timestamp);
+
+    // Calculate deltaTime internally so animations are consistent
+    const deltaTime = timestamp - (this.lastDialogUpdate || timestamp);
+    this.lastDialogUpdate = timestamp;
+
+    // Always update animation values regardless of dialog state
+    if (this.isRipple || this.isColor) {
+      // Use timestamp to make animations consistent regardless of frame rate
+      this.rippleProgress += deltaTime * 0.003;
+    }
+
     if (this.readyToContinue) return;
 
     // If skipped, show entire current line
@@ -243,25 +263,66 @@ class DialogBox {
     }
   }
 
-  draw(ctx, canvasWidth, canvasHeight) {
+  getRippleOffset(index) {
+    const frequency = 0.2;
+    const amplitude = 5;
+    // Use rippleProgress for continuous animation
+    return Math.sin(frequency * index + this.rippleProgress) * amplitude;
+  }
+
+  getRainbowColor(index) {
+    const frequency = 0.3;
+    // Use rippleProgress to make colors flow over time
+    const red = Math.sin(frequency * index + this.rippleProgress) * 127 + 128;
+    const green =
+      Math.sin(frequency * (index + this.rippleProgress * 0.7) + 2) * 127 + 128;
+    const blue =
+      Math.sin(frequency * (index + this.rippleProgress * 1.3) + 4) * 127 + 128;
+    return `rgb(${Math.floor(red)}, ${Math.floor(green)}, ${Math.floor(blue)})`;
+  }
+
+  // Override draw from GameElement
+  draw(ctx, viewportX = 0, viewportY = 0) {
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+
     // Draw semi-transparent dialog background at the bottom
     const boxHeight = 100;
     const boxY = canvasHeight - boxHeight - 10;
     ctx.fillStyle = "rgba(0,0,0,0.7)";
     ctx.fillRect(10, boxY, canvasWidth - 20, boxHeight);
 
-    ctx.fillStyle = "white";
     ctx.font = "16px monospace";
+
     for (let i = 0; i <= this.currentLine; i++) {
       const textToDraw =
         i === this.currentLine
           ? this.lines[i].substring(0, this.currentChar)
           : this.lines[i];
-      ctx.fillText(textToDraw, 20, boxY + 30 + i * 20);
+
+      let x = 20; // Starting x position for text
+      const baseY = boxY + 30 + i * 20;
+
+      for (let j = 0; j < textToDraw.length; j++) {
+        const char = textToDraw[j];
+
+        // Set color for each character - now animated with rippleProgress
+        if (this.isColor) {
+          ctx.fillStyle = this.getRainbowColor(j);
+        } else {
+          ctx.fillStyle = "white";
+        }
+
+        // Apply ripple effect - now animated with rippleProgress
+        const yOffset = this.isRipple ? this.getRippleOffset(j) : 0;
+        ctx.fillText(char, x, baseY + yOffset);
+        x += ctx.measureText(char).width;
+      }
     }
 
     // Draw an arrow if the current line is complete
     if (this.readyToContinue) {
+      ctx.fillStyle = "white";
       ctx.fillText(">>", canvasWidth - 40, boxY + boxHeight - 10);
     }
   }

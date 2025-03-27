@@ -217,10 +217,10 @@ class GameState {
     this.avatar.update(timestamp);
     this.avatar.draw(this.ctx, this.viewportX, this.viewportY);
 
-    // If a dialog is active, update and draw it on top
+    // If a dialog is active, update and draw it - now treating it as a GameElement
     if (this.dialog) {
-      this.dialog.update(deltaTime);
-      this.dialog.draw(this.ctx, this.canvas.width, this.canvas.height);
+      this.dialog.update(timestamp); // Pass timestamp instead of deltaTime
+      this.dialog.draw(this.ctx, this.viewportX, this.viewportY);
     }
 
     requestAnimationFrame((ts) => this.gameLoop(ts));
