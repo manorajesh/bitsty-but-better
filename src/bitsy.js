@@ -172,6 +172,7 @@ class GameState {
         const worldY = y + this.viewportY;
 
         this.ctx.strokeStyle = "#555";
+        this.ctx.font = "10px sans-serif";
         this.ctx.strokeText(
           `${worldX},${worldY}`,
           x * CELL_SIZE + 10,
