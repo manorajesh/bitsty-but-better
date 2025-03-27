@@ -14,6 +14,7 @@ class GameState {
     this.lastTimestamp = 0;
     this.titleScreen = null;
     this.gameStarted = false;
+    this.debugMode = isDebugMode();
 
     this.viewportX = 0;
     this.viewportY = 0;
@@ -172,14 +173,14 @@ class GameState {
           moved = this.avatar.move(1, 0, this);
           break;
         case "KeyA": // Zoom in
-          if (GRID_SIZE > 9) {
+          if (GRID_SIZE > 4) {
             GRID_SIZE -= 2;
             this.resizeCanvas();
             this.centerViewportOnAvatar();
           }
           break;
         case "KeyD": // Zoom out
-          if (GRID_SIZE < 90) {
+          if (GRID_SIZE < WORLD_SIZE) {
             GRID_SIZE += 2;
             this.resizeCanvas();
             this.centerViewportOnAvatar();
@@ -228,7 +229,7 @@ class GameState {
       requestAnimationFrame((ts) => this.gameLoop(ts));
       return;
     }
-    this.drawGrid();
+    this.debugMode && this.drawGrid();
 
     this.worldTiles.forEach((tile) => {
       if (this.isInViewport(tile.x, tile.y)) {
