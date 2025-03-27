@@ -7,7 +7,6 @@ class GameState {
     this.canvas = document.getElementById("gameCanvas");
     this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
     this.avatar = null;
-    this.tiles = [];
     this.worldTiles = [];
     this.sprites = [];
     this.items = [];
@@ -25,7 +24,7 @@ class GameState {
   async initialize() {
     await this.loadWorld("images/world.gif");
 
-    this.avatar = new Avatar(8, 8, "images/avatar.gif"); // Start in the middle of the viewport
+    this.avatar = new Avatar(8, 8, "images/avatar.gif");
     this.items.push(
       new Item(12, 12, "images/coin.png", "coin", "You picked up a coin!")
     );
