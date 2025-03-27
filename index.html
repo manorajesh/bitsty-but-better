@@ -2,10 +2,11 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>16x16 Game Engine Starter</title>
+    <title>bitsy</title>
     <style>
       body {
         margin: 0;
+        background: #000;
       }
       canvas {
         display: block;
@@ -15,52 +16,6 @@
   </head>
   <body>
     <canvas id="gameCanvas"></canvas>
-    <script>
-      const GRID_SIZE = 16; // Number of cells per row/column
-      const CELL_SIZE = 32; // Size of each cell in pixels (adjust as needed)
-
-      const canvas = document.getElementById("gameCanvas");
-      canvas.width = GRID_SIZE * CELL_SIZE;
-      canvas.height = GRID_SIZE * CELL_SIZE;
-      const ctx = canvas.getContext("2d");
-
-      // Game loop to clear and redraw the grid each frame
-      function gameLoop() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawGrid();
-        requestAnimationFrame(gameLoop);
-      }
-
-      // Draw a simple grid outline
-      function drawGrid() {
-        for (let y = 0; y < GRID_SIZE; y++) {
-          for (let x = 0; x < GRID_SIZE; x++) {
-            ctx.strokeStyle = "#555";
-            ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-          }
-        }
-      }
-
-      // Start the game loop
-      requestAnimationFrame(gameLoop);
-
-      // Basic input handling (logs arrow keys)
-      window.addEventListener("keydown", (e) => {
-        switch (e.code) {
-          case "ArrowUp":
-            console.log("Up");
-            break;
-          case "ArrowDown":
-            console.log("Down");
-            break;
-          case "ArrowLeft":
-            console.log("Left");
-            break;
-          case "ArrowRight":
-            console.log("Right");
-            break;
-        }
-      });
-    </script>
+    <script src="bitsy.js"></script>
   </body>
 </html>
