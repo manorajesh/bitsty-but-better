@@ -156,6 +156,7 @@ class DialogBox {
     this.timer = 0;
     this.charDelay = 50; // milliseconds per character
     this.readyToContinue = false;
+    this.isSkipped = false; // Add this new property
     this.prepareDialog();
   }
 
@@ -175,6 +176,15 @@ class DialogBox {
 
   update(deltaTime) {
     if (this.readyToContinue) return;
+
+    // If skipped, show entire current line
+    if (this.isSkipped) {
+      this.currentChar = this.lines[this.currentLine].length;
+      this.readyToContinue = true;
+      this.isSkipped = false;
+      return;
+    }
+
     this.timer += deltaTime;
     if (this.timer >= this.charDelay) {
       if (this.currentChar < this.lines[this.currentLine].length) {
@@ -209,12 +219,19 @@ class DialogBox {
     }
   }
 
+  skip() {
+    if (!this.readyToContinue) {
+      this.isSkipped = true;
+    }
+  }
+
   continue() {
     if (this.readyToContinue) {
       if (this.currentLine < this.lines.length - 1) {
         this.currentLine++;
         this.currentChar = 0;
         this.readyToContinue = false;
+        this.isSkipped = false; // Reset skip state for next line
       } else {
         // Signal that dialog is finished
         return true;

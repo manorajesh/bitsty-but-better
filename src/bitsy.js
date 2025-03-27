@@ -29,7 +29,7 @@ class GameState {
   }
 
   resizeCanvas() {
-    const padding = 20;
+    const padding = 0;
     const maxHeight = window.innerHeight - padding * 2;
     const maxWidth = window.innerWidth - padding * 2;
     CELL_SIZE = Math.floor(
@@ -45,10 +45,14 @@ class GameState {
 
   setupInputHandlers() {
     window.addEventListener("keydown", (e) => {
-      // When a dialog is active, use Enter/Space to continue it
       if (this.dialog) {
-        if (this.dialog.continue()) {
-          this.dialog = null;
+        if (!this.dialog.readyToContinue) {
+          this.dialog.skip();
+        } else {
+          const isFinished = this.dialog.continue();
+          if (isFinished) {
+            this.dialog = null;
+          }
         }
         return; // Do not process movement while dialog is active
       }
