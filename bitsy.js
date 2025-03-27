@@ -123,19 +123,9 @@ class Tile extends GameElement {
 
 // Animated elements that don't move
 class Sprite extends GameElement {
-  constructor(x, y, imageUrl, frameCount = 1) {
+  constructor(x, y, imageUrl, dialog) {
     super(x, y, imageUrl);
-    this.frameCount = frameCount;
-    this.currentFrame = 0;
-    this.animationSpeed = 100; // ms per frame
-    this.lastFrame = 0;
-  }
-
-  update(timestamp) {
-    if (timestamp - this.lastFrame > this.animationSpeed) {
-      this.currentFrame = (this.currentFrame + 1) % this.frameCount;
-      this.lastFrame = timestamp;
-    }
+    this.dialog = dialog;
   }
 }
 
@@ -255,7 +245,7 @@ class GameState {
   async initialize() {
     // Create game elements
     this.avatar = new Avatar(0, 0, "./image.gif");
-    this.items.push(new Item(5, 5, "./coin.png", "key"));
+    this.items.push(new Item(5, 5, "./coin.png", "coin"));
 
     // Start with a sample dialog message
     this.dialog = new DialogBox("Welcome to the game! Use arrow keys to move.");
