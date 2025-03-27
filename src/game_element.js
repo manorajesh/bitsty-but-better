@@ -329,7 +329,6 @@ class DialogBox extends GameElement {
         this.readyToContinue = false;
         this.isSkipped = false; // Reset skip state for next line
       } else {
-        // Signal that dialog is finished
         return true;
       }
     }
@@ -340,15 +339,14 @@ class DialogBox extends GameElement {
 // Title Screen for the game
 class TitleScreen extends GameElement {
   constructor(title, subtitle = "", instructions = "") {
-    super(0, 0, null); // Position doesn't matter for centered elements
+    super(0, 0, null);
     this.title = title;
     this.subtitle = subtitle;
     this.instructions = instructions;
     this.visible = true;
     this.animationProgress = 0;
-    this.alpha = 1.0; // For fade transitions
+    this.alpha = 1.0;
 
-    // Optional decorative elements
     this.decorations = [];
     for (let i = 0; i < 20; i++) {
       this.decorations.push({
@@ -365,10 +363,8 @@ class TitleScreen extends GameElement {
     const deltaTime = timestamp - (this.lastTitleUpdate || timestamp);
     this.lastTitleUpdate = timestamp;
 
-    // Update animation values
     this.animationProgress += deltaTime * 0.001;
 
-    // Update decoration positions
     this.decorations.forEach((dot) => {
       dot.y = (dot.y + dot.speed * deltaTime * 0.001) % 1;
     });
@@ -380,7 +376,6 @@ class TitleScreen extends GameElement {
     const canvasWidth = ctx.canvas.width;
     const canvasHeight = ctx.canvas.height;
 
-    // Draw opaque background
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
@@ -402,7 +397,6 @@ class TitleScreen extends GameElement {
     ctx.font = "40px BitsyFont, monospace";
     ctx.fillStyle = "#FFF";
 
-    // Center align text
     const titleWidth = ctx.measureText(this.title).width;
     ctx.fillText(
       this.title,
@@ -410,7 +404,6 @@ class TitleScreen extends GameElement {
       titleY + titleOffset
     );
 
-    // Draw subtitle
     if (this.subtitle) {
       ctx.font = "24px BitsyFont, monospace";
       const subtitleWidth = ctx.measureText(this.subtitle).width;
