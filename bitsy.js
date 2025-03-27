@@ -187,6 +187,7 @@ class GameState {
   async initialize() {
     // Create avatar
     this.avatar = new Avatar(0, 0, "./image.gif");
+    this.items.push(new Item(5, 5, "./coin.png", "key"));
 
     // Initialize game elements
     this.setupInputHandlers();
@@ -238,7 +239,13 @@ class GameState {
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         this.ctx.strokeStyle = "#555";
-        // this.ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        // draw the coordinates of the grid
+        this.ctx.strokeText(
+          `${x},${y}`,
+          x * CELL_SIZE + 10,
+          y * CELL_SIZE + 10
+        );
+        this.ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       }
     }
   }
