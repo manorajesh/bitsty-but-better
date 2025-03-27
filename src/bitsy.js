@@ -1,5 +1,5 @@
 let GRID_SIZE = 16;
-const WORLD_SIZE = 1024;
+const WORLD_SIZE = 256;
 let CELL_SIZE;
 
 function isDebugMode() {
@@ -58,6 +58,12 @@ class GameState {
       this.endingScreen.update(timestamp);
       this.endingScreen.draw(this.ctx);
       requestAnimationFrame((ts) => this.gameLoop(ts));
+      return;
+    }
+    const targetX = 15; //replace x and y with the actual target coordinates
+    const targetY = 15;
+    if (this.avatar.x === targetX && this.avatar.y === targetY) {
+      this.showEndingScreen();
       return;
     }
 
@@ -126,9 +132,10 @@ class GameState {
       "Press ENTER to start"
     );
 
-    await this.loadWorld("images/world.gif", "images/background1.jpeg");
+    // Now loading a single GIF instead of separate files
+    await this.loadWorld("images/world.gif");
 
-    this.avatar = new Avatar(8, 8, "images/avatar.gif");
+    this.avatar = new Avatar(8, 8, "images/avatar2.gif");
     this.items.push(
       new Item(12, 12, "images/coin.png", "coin", "You picked up a coin!")
     );
@@ -142,61 +149,86 @@ class GameState {
     requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
   }
 
-  async loadWorld(worldImageUrl, backgroundImageUrl) {
-    // Load the background image
-    if (backgroundImageUrl) {
-      this.backgroundImage = await new Promise((resolve) => {
-        const bgImg = new Image();
-        bgImg.onload = () => resolve(bgImg);
-        bgImg.onerror = () => {
-          console.error(
-            `Failed to load background image: ${backgroundImageUrl}`
-          );
-          resolve(null);
-        };
-        bgImg.src = backgroundImageUrl;
-      });
-    }
-
+  async loadWorld(worldGifUrl) {
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = img.width;
-        tempCanvas.height = img.height;
-        const tempCtx = tempCanvas.getContext("2d");
-        tempCtx.drawImage(img, 0, 0);
+      try {
+        // Load the GIF
+        const tempImage = document.createElement("img");
+        tempImage.onload = () => {
+          // Set up SuperGif
+          const rub = new SuperGif({
+            gif: tempImage,
+            auto_play: false,
+          });
 
-        // Read the image data to get the red values
-        const imageData = tempCtx.getImageData(
-          0,
-          0,
-          img.width,
-          img.height
-        ).data;
-
-        // Parse the red channel values to determine tile types
-        for (let y = 0; y < img.height && y < WORLD_SIZE; y++) {
-          for (let x = 0; x < img.width && x < WORLD_SIZE; x++) {
-            const pixelIndex = (y * img.width + x) * 4;
-            const tileIndex = imageData[pixelIndex]; // Red component
-            if (imageData[pixelIndex + 3] === 0) {
-              // Skip transparent pixels
-              continue;
+          rub.load(() => {
+            // Check if we have at least 2 frames in the GIF
+            const frameCount = rub.get_length();
+            if (frameCount < 2) {
+              reject(
+                new Error(`GIF must have at least 2 frames: ${worldGifUrl}`)
+              );
+              return;
             }
 
-            this.worldMap[y][x] = tileIndex;
+            // First frame is the background image
+            rub.move_to(0);
+            const bgCanvas = rub.get_canvas();
+            this.backgroundImage = new Image();
+            this.backgroundImage.src = bgCanvas.toDataURL();
 
-            const tile = new Tile(x, y, `images/tile${tileIndex}.png`, true);
-            this.worldTiles.push(tile);
-          }
-        }
+            // Second frame contains the tilemap
+            rub.move_to(1);
+            const tilemapCanvas = rub.get_canvas();
+            const tilemapCtx = tilemapCanvas.getContext("2d");
+            const imageData = tilemapCtx.getImageData(
+              0,
+              0,
+              tilemapCanvas.width,
+              tilemapCanvas.height
+            ).data;
 
-        resolve();
-      };
-      img.onerror = () =>
-        reject(new Error(`Failed to load world image: ${worldImageUrl}`));
-      img.src = worldImageUrl;
+            // Parse the tilemap frame - read the red channel for tile indices
+            // and ignore transparent pixels
+            for (let y = 0; y < tilemapCanvas.height && y < WORLD_SIZE; y++) {
+              for (let x = 0; x < tilemapCanvas.width && x < WORLD_SIZE; x++) {
+                const pixelIndex = (y * tilemapCanvas.width + x) * 4;
+                const tileIndex = imageData[pixelIndex]; // Red component
+                const alpha = imageData[pixelIndex + 3]; // Alpha component
+
+                // Skip transparent pixels
+                if (alpha === 0) {
+                  continue;
+                }
+
+                // Store the tile index in the world map
+                this.worldMap[y][x] = tileIndex;
+
+                // Only create tiles for non-zero indices (assuming 0 is empty)
+                if (tileIndex >= 0) {
+                  const tile = new Tile(
+                    x,
+                    y,
+                    `images/tile${tileIndex}.png`,
+                    true
+                  );
+                  this.worldTiles.push(tile);
+                }
+              }
+            }
+
+            resolve();
+          });
+        };
+
+        tempImage.onerror = () => {
+          reject(new Error(`Failed to load world GIF: ${worldGifUrl}`));
+        };
+
+        tempImage.src = worldGifUrl;
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
@@ -204,7 +236,7 @@ class GameState {
     const padding = 0;
     const maxHeight = window.innerHeight - padding * 2;
     const maxWidth = window.innerWidth - padding * 2;
-    CELL_SIZE = Math.floor(
+    CELL_SIZE = Math.round(
       Math.min(maxHeight / GRID_SIZE, maxWidth / GRID_SIZE)
     );
     this.canvas.width = GRID_SIZE * CELL_SIZE;
