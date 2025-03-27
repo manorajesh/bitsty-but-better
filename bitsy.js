@@ -7,30 +7,105 @@ class GameElement {
   constructor(x, y, imageUrl) {
     this.x = x;
     this.y = y;
-    this.image = new Image();
+    this.frames = [];
+    this.frameDelays = []; // Add array to store individual frame delays
+    this.currentFrame = 0;
+    this.lastFrameTime = 0;
     this.loaded = false;
+    this.isGif = false;
 
     if (imageUrl) {
       this.loadImage(imageUrl);
     }
   }
 
-  loadImage(url) {
+  async loadImage(url) {
+    if (url.toLowerCase().endsWith(".gif")) {
+      try {
+        const response = await fetch(url);
+        const buffer = await response.arrayBuffer();
+        await this.decodeGif(buffer);
+      } catch (error) {
+        console.error("Failed to load GIF:", error);
+      }
+    } else {
+      // Handle regular image loading
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          this.frames = [img];
+          this.loaded = true;
+          resolve();
+        };
+        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+        img.src = url;
+      });
+    }
+  }
+
+  async decodeGif(buffer) {
     return new Promise((resolve, reject) => {
-      this.image.onload = () => {
-        this.loaded = true;
-        resolve();
+      const tempImage = document.createElement("img");
+      const blob = new Blob([buffer], { type: "image/gif" });
+      tempImage.src = URL.createObjectURL(blob);
+
+      tempImage.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = tempImage.width;
+        canvas.height = tempImage.height;
+
+        const rub = new SuperGif({
+          gif: tempImage,
+          auto_play: false,
+        });
+
+        rub.load(() => {
+          const frameCount = rub.get_length();
+
+          // Extract all frames and their delays
+          for (let i = 0; i < frameCount; i++) {
+            rub.move_to(i);
+            const frameCanvas = rub.get_canvas();
+            const delay = rub.delay;
+
+            // Store frame and its delay
+            const frameImage = new Image();
+            frameImage.src = frameCanvas.toDataURL();
+            this.frames.push(frameImage);
+            this.frameDelays.push(delay);
+          }
+
+          this.loaded = true;
+          this.isGif = true;
+
+          // Clean up
+          URL.revokeObjectURL(tempImage.src);
+          resolve();
+        });
       };
-      this.image.onerror = () =>
-        reject(new Error(`Failed to load image: ${url}`));
-      this.image.src = url;
+
+      tempImage.onerror = () => {
+        reject(new Error("Failed to load GIF"));
+      };
     });
   }
 
+  update(timestamp) {
+    if (this.isGif && this.frames.length > 1) {
+      // Get current frame's delay, or use 100ms as fallback
+      const delay = this.frameDelays[this.currentFrame] || 100;
+
+      if (timestamp - this.lastFrameTime > delay) {
+        this.currentFrame = (this.currentFrame + 1) % this.frames.length;
+        this.lastFrameTime = timestamp;
+      }
+    }
+  }
+
   draw(ctx) {
-    if (this.loaded) {
+    if (this.loaded && this.frames.length > 0) {
       ctx.drawImage(
-        this.image,
+        this.frames[this.currentFrame],
         this.x * CELL_SIZE,
         this.y * CELL_SIZE,
         CELL_SIZE,
@@ -102,7 +177,7 @@ class Item extends GameElement {
 class GameState {
   constructor() {
     this.canvas = document.getElementById("gameCanvas");
-    this.ctx = this.canvas.getContext("2d");
+    this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
     this.avatar = null;
     this.tiles = [];
     this.sprites = [];
@@ -112,7 +187,6 @@ class GameState {
   async initialize() {
     // Create avatar
     this.avatar = new Avatar(0, 0, "./image.gif");
-    await this.avatar.loadImage("./image.gif");
 
     // Initialize game elements
     this.setupInputHandlers();
@@ -164,7 +238,7 @@ class GameState {
     for (let y = 0; y < GRID_SIZE; y++) {
       for (let x = 0; x < GRID_SIZE; x++) {
         this.ctx.strokeStyle = "#555";
-        this.ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        // this.ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       }
     }
   }
@@ -174,12 +248,27 @@ class GameState {
 
     // Draw and update game elements
     this.drawGrid();
-    this.tiles.forEach((tile) => tile.draw(this.ctx));
+
+    // Update and draw tiles
+    this.tiles.forEach((tile) => {
+      tile.update(timestamp);
+      tile.draw(this.ctx);
+    });
+
+    // Update and draw sprites
     this.sprites.forEach((sprite) => {
       sprite.update(timestamp);
       sprite.draw(this.ctx);
     });
-    this.items.forEach((item) => item.draw(this.ctx));
+
+    // Update and draw items
+    this.items.forEach((item) => {
+      item.update(timestamp);
+      item.draw(this.ctx);
+    });
+
+    // Update and draw avatar
+    this.avatar.update(timestamp);
     this.avatar.draw(this.ctx);
 
     requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
