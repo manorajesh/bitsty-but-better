@@ -1,5 +1,5 @@
 let GRID_SIZE = 16;
-const WORLD_SIZE = 256;
+const WORLD_SIZE = 128; // Set WORLD_SIZE as a constant
 let CELL_SIZE;
 
 function isDebugMode() {
@@ -25,6 +25,7 @@ class GameState {
     this.viewportX = 0;
     this.viewportY = 0;
 
+    // Initialize worldMap with the constant WORLD_SIZE
     this.worldMap = Array(WORLD_SIZE)
       .fill()
       .map(() => Array(WORLD_SIZE).fill(0));
@@ -188,10 +189,14 @@ class GameState {
               tilemapCanvas.height
             ).data;
 
+            // Scale factors to map from tilemap coords to world coords
+            const xScale = WORLD_SIZE / tilemapCanvas.width;
+            const yScale = WORLD_SIZE / tilemapCanvas.height;
+
             // Parse the tilemap frame - read the red channel for tile indices
             // and ignore transparent pixels
-            for (let y = 0; y < tilemapCanvas.height && y < WORLD_SIZE; y++) {
-              for (let x = 0; x < tilemapCanvas.width && x < WORLD_SIZE; x++) {
+            for (let y = 0; y < tilemapCanvas.height; y++) {
+              for (let x = 0; x < tilemapCanvas.width; x++) {
                 const pixelIndex = (y * tilemapCanvas.width + x) * 4;
                 const tileIndex = imageData[pixelIndex]; // Red component
                 const alpha = imageData[pixelIndex + 3]; // Alpha component
@@ -201,14 +206,19 @@ class GameState {
                   continue;
                 }
 
-                // Store the tile index in the world map
-                this.worldMap[y][x] = tileIndex;
+                // Calculate world coordinates based on scale
+                const worldX = Math.floor(x * xScale);
+                const worldY = Math.floor(y * yScale);
+
+                console.log(
+                  `Tile at (${worldX}, ${worldY}) has index ${tileIndex}`
+                );
 
                 // Only create tiles for non-zero indices (assuming 0 is empty)
-                if (tileIndex >= 0) {
+                if (tileIndex > 0) {
                   const tile = new Tile(
-                    x,
-                    y,
+                    worldX,
+                    worldY,
                     `images/tile${tileIndex}.png`,
                     true
                   );
