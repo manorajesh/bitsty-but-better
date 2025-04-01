@@ -1,6 +1,4 @@
-import "
-
-../libgif/libgif.js";
+import "../libgif/libgif.js";
 import "../libgif/rubbable.js";
 import "./game_element.js";
 
