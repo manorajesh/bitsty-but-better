@@ -1,3 +1,9 @@
+import "
+
+../libgif/libgif.js";
+import "../libgif/rubbable.js";
+import "./game_element.js";
+
 let GRID_SIZE = 16;
 const WORLD_SIZE = 256;
 let CELL_SIZE;
