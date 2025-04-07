@@ -118,6 +118,16 @@ class Avatar extends GameElement {
     const sprite = gameState.sprites.find(
       (sprite) => sprite.x === newX && sprite.y === newY
     );
+
+    // Check for portals first
+    const portal = gameState.portals.find(
+      (portal) => portal.x === newX && portal.y === newY
+    );
+    if (portal) {
+      portal.interact(gameState);
+      return false; // Movement handled by room change
+    }
+
     if (sprite) {
       sprite.interact(gameState);
       return false;
@@ -155,6 +165,19 @@ class Tile extends GameElement {
   }
 }
 
+class ExitTile extends GameElement {
+  constructor(x, y, imageUrl) {
+    super(x, y, imageUrl);
+    this.isExit = true;
+  }
+
+  interact(gameState) {
+    if (this.isExit) {
+      gameState.levelComplete = true;
+    }
+  }
+}
+
 class Sprite extends GameElement {
   constructor(x, y, imageUrl, dialog) {
     super(x, y, imageUrl);
@@ -187,6 +210,43 @@ class Item extends GameElement {
   draw(ctx, viewportX = 0, viewportY = 0) {
     if (!this.collected) {
       super.draw(ctx, viewportX, viewportY);
+    }
+  }
+}
+
+class Portal extends GameElement {
+  constructor(x, y, targetRoom, isForward = true, portalId = -1) {
+    // Use a transparent image or specific portal images based on direction
+    const imageUrl = isForward
+      ? "images/forward_portal.png"
+      : "images/backward_portal.png";
+    super(x, y, imageUrl);
+    this.targetRoom = targetRoom;
+    this.isForward = isForward;
+    this.isVisible = false; // Portals are invisible by default
+    this.portalId = portalId; // Store the portal ID
+  }
+
+  interact(gameState) {
+    console.log(`Player chose portal #${this.portalId}`);
+    gameState.changeRoom(this.targetRoom);
+  }
+
+  // Override draw to make portals invisible (but still interactive)
+  draw(ctx, viewportX = 0, viewportY = 0, isDebugMode = false) {
+    if (this.isVisible) {
+      super.draw(ctx, viewportX, viewportY);
+    }
+
+    // Debug mode: show portal location with a semi-transparent overlay
+    if (isDebugMode) {
+      const screenX = (this.x - viewportX) * CELL_SIZE;
+      const screenY = (this.y - viewportY) * CELL_SIZE;
+
+      ctx.fillStyle = this.isForward
+        ? "rgba(0,0,255,0.3)"
+        : "rgba(0,255,0,0.3)";
+      ctx.fillRect(screenX, screenY, CELL_SIZE, CELL_SIZE);
     }
   }
 }
