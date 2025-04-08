@@ -126,6 +126,9 @@ class Avatar extends GameElement {
       return false;
     }
 
+    const color = gameState.getPixelColor(newX, newY);
+    console.log(`Pixel color at (${newX}, ${newY}):`, color);
+
     // Check for obstructions (solid tiles or sprites)
     const solid = gameState.worldTiles.some(
       (tile) => tile.x === newX && tile.y === newY && tile.solid
@@ -136,6 +139,12 @@ class Avatar extends GameElement {
     }
 
     // The avatar can move, update position
+    if (!gameState.isWalkable(newX, newY)) {
+      console.log(`Cannot move to (${newX}, ${newY}): Unwalkable`);
+      return false;
+    }
+
+    // Update position
     this.x = newX;
     this.y = newY;
 
@@ -498,6 +507,8 @@ class TitleScreen extends GameElement {
 
     if (this.subtitle) {
       ctx.font = "24px BitsyFont, monospace";
+      // grey
+      ctx.fillStyle = "#AAA";
       const subtitleWidth = ctx.measureText(this.subtitle).width;
       ctx.fillText(
         this.subtitle,
@@ -543,8 +554,6 @@ class LoadingScreen extends GameElement {
   constructor(message = "Loading...") {
     super(0, 0, null);
     this.message = message;
-    this.dots = 0;
-    this.dotTimer = 0;
     this.animationProgress = 0;
   }
 
@@ -554,12 +563,6 @@ class LoadingScreen extends GameElement {
     this.lastUpdate = timestamp;
 
     this.animationProgress += deltaTime * 0.002;
-
-    this.dotTimer += deltaTime;
-    if (this.dotTimer > 500) {
-      this.dots = (this.dots + 1) % 4;
-      this.dotTimer = 0;
-    }
   }
 
   draw(ctx) {
@@ -574,35 +577,85 @@ class LoadingScreen extends GameElement {
     ctx.font = "30px BitsyFont, monospace";
     ctx.fillStyle = "#FFF";
 
-    const dotStr = ".".repeat(this.dots);
-    const text = `${this.message}${dotStr}`;
-
+    const text = this.message;
     const textWidth = ctx.measureText(text).width;
     ctx.fillText(text, (canvasWidth - textWidth) / 2, canvasHeight / 2);
 
-    // Loading spinner
-    const spinnerSize = 50;
-    const spinnerX = canvasWidth / 2;
-    const spinnerY = canvasHeight / 2 + 50;
-    const spinnerAngle = this.animationProgress * Math.PI * 2;
+    // Analog clock
+    const clockRadius = 30;
+    const clockX = canvasWidth / 2;
+    const clockY = canvasHeight / 2 + 70;
 
-    ctx.save();
-    ctx.translate(spinnerX, spinnerY);
-    ctx.rotate(spinnerAngle);
+    // Draw clock face
+    ctx.beginPath();
+    ctx.arc(clockX, clockY, clockRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = "#FFF";
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2;
-      const x = (Math.cos(angle) * spinnerSize) / 2;
-      const y = (Math.sin(angle) * spinnerSize) / 2;
-      const alpha = 0.2 + (i / 8) * 0.8;
+    // Draw small markers for hours
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const innerRadius = clockRadius - 5;
+      const outerRadius = clockRadius - 2;
 
-      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(
+        clockX + Math.sin(angle) * innerRadius,
+        clockY - Math.cos(angle) * innerRadius
+      );
+      ctx.lineTo(
+        clockX + Math.sin(angle) * outerRadius,
+        clockY - Math.cos(angle) * outerRadius
+      );
+      ctx.strokeStyle = "#FFF";
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
 
-    ctx.restore();
+    // Calculate hand positions
+    const secondsAngle = (this.animationProgress * 6) % (Math.PI * 2);
+    const minutesAngle = (this.animationProgress * 0.5) % (Math.PI * 2);
+    const hoursAngle = (this.animationProgress * 0.1) % (Math.PI * 2);
+
+    // Draw hour hand
+    ctx.beginPath();
+    ctx.moveTo(clockX, clockY);
+    ctx.lineTo(
+      clockX + Math.sin(hoursAngle) * (clockRadius * 0.5),
+      clockY - Math.cos(hoursAngle) * (clockRadius * 0.5)
+    );
+    ctx.strokeStyle = "#FFF";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Draw minute hand
+    ctx.beginPath();
+    ctx.moveTo(clockX, clockY);
+    ctx.lineTo(
+      clockX + Math.sin(minutesAngle) * (clockRadius * 0.7),
+      clockY - Math.cos(minutesAngle) * (clockRadius * 0.7)
+    );
+    ctx.strokeStyle = "#FFF";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw second hand
+    ctx.beginPath();
+    ctx.moveTo(clockX, clockY);
+    ctx.lineTo(
+      clockX + Math.sin(secondsAngle) * (clockRadius * 0.9),
+      clockY - Math.cos(secondsAngle) * (clockRadius * 0.9)
+    );
+    ctx.strokeStyle = "#FF3333";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Draw central dot
+    ctx.beginPath();
+    ctx.arc(clockX, clockY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#FFF";
+    ctx.fill();
   }
 }
 

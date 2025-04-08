@@ -358,9 +358,9 @@ class GameState {
               // console.log("Choice description:", choice.description);
 
               this.dialog = new DialogBox(
-                `${choice.title || "Option " + (choiceIndex + 1)}\n\n${
-                  choice.description || "No description available."
-                }\n\n(Press T to choose this option)`,
+                `${choice.title || "Option " + (choiceIndex + 1)} - ${
+                  choice.description || "this option is empty..."
+                }\n\n -- (Press T to choose this option)`,
                 false,
                 false
               );
@@ -417,18 +417,20 @@ class GameState {
     const canvasY = Math.floor(
       (y - this.viewportY) * CELL_SIZE + CELL_SIZE / 2
     );
+
     if (
       canvasX < 0 ||
       canvasX >= this.canvas.width ||
       canvasY < 0 ||
       canvasY >= this.canvas.height
     ) {
-      return { r: 0, g: 0, b: 0 };
+      return { r: 0, g: 0, b: 0 }; // Default to black if out of bounds
     }
 
     const imageData = this.ctx.getImageData(canvasX, canvasY, 1, 1);
     const [r, g, b] = imageData.data;
 
+    console.log(`Pixel color at (${x}, ${y}):`, { r, g, b }); // Debugging
     return { r, g, b };
   }
 
@@ -538,7 +540,7 @@ class GameState {
 
       this.isLoadingResponse = false;
       this.loadingScreen = null;
-      this.dialog = new DialogBox(initialState.description, true, true);
+      this.dialog = new DialogBox(initialState.description, false, false);
 
       const numChoices = initialState.choices.length;
       const worldNumber = Math.min(Math.max(numChoices, 1), 5);
@@ -584,7 +586,7 @@ class GameState {
 
       this.isLoadingResponse = false;
       this.loadingScreen = null;
-      this.dialog = new DialogBox(nextState.description, true, true);
+      this.dialog = new DialogBox(nextState.description, false, false);
 
       const numChoices = nextState.choices.length;
       const worldNumber = Math.min(Math.max(numChoices, 1), 5);
@@ -603,7 +605,7 @@ class GameState {
   showPremiseInput() {
     this.premiseInput = new TextInputBox(
       "Enter your story premise:",
-      "Type your adventure premise here..."
+      "Type your premise here..."
     );
     this.premiseInput.visible = true;
   }
@@ -800,12 +802,12 @@ class GameState {
     );
 
     this.titleScreen = new TitleScreen(
-      "Narrative Adventure",
-      "A game powered by AI",
+      "What's Next?",
+      "made with love, tears, and all nighters",
       "Press ENTER to start"
     );
 
-    this.avatar = new Avatar(25, 25, "images/yellow_blob.gif");
+    this.avatar = new Avatar(25, 25, "images/yellow.gif");
 
     this.centerViewportOnAvatar();
 
@@ -815,6 +817,10 @@ class GameState {
     this.resizeCanvas();
     window.addEventListener("resize", () => this.resizeCanvas());
     requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+  }
+  isWalkable(x, y) {
+    const { r, g, b } = this.getPixelColor(x, y);
+    return !(r === 49 && g === 36 && b === 102); // Return false for unwalkable
   }
 }
 
