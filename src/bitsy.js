@@ -1,4 +1,4 @@
-let GRID_SIZE = 16;
+let GRID_SIZE = 50;
 const WORLD_SIZE = 50;
 let CELL_SIZE;
 
@@ -22,13 +22,13 @@ class GameState {
     this.gameStarted = false;
     this.debugMode = isDebugMode();
 
-    // Narrative game elements
     this.narrativeManager = null;
     this.currentNarrativeState = null;
     this.isLoadingResponse = false;
     this.loadingScreen = null;
     this.premiseInput = null;
     this.gameOverScreen = null;
+    this.totalChoices = 0;
 
     this.viewportX = 0;
     this.viewportY = 0;
@@ -36,7 +36,6 @@ class GameState {
     this.currentRoomNumber = 1;
     this.portals = [];
 
-    // Tracks the portal the player is currently at
     this.currentPortal = null;
   }
 
@@ -333,6 +332,7 @@ class GameState {
           if (this.endingScreen && this.endingScreen.visible) {
             this.showPremiseInput();
             this.endingScreen.visible = false;
+            this.totalChoices = 0;
           } else {
             this.showTitleScreen();
           }
@@ -533,10 +533,17 @@ class GameState {
   async startNarrativeGame(premise) {
     this.premiseInput.visible = false;
     this.isLoadingResponse = true;
-    this.loadingScreen = new LoadingScreen("Generating your adventure...");
+    this.loadingScreen = new LoadingScreen("Assembling a moment in words...");
 
     try {
-      const initialState = await this.narrativeManager.startGame(premise);
+      // Generate a random number of choices between 1 and 5
+      const requestedChoiceCount = Math.floor(Math.random() * 5) + 1;
+
+      // Pass the requested choice count to the narrative manager
+      const initialState = await this.narrativeManager.startGame(
+        premise,
+        requestedChoiceCount
+      );
       this.currentNarrativeState = initialState;
 
       this.isLoadingResponse = false;
@@ -573,7 +580,7 @@ class GameState {
     this.dialog = null;
     this.currentPortal = null;
 
-    if (choice.isGameOver) {
+    if (choice.isGameOver && this.totalChoices > 5) {
       this.showGameOverScreen(choice.gameOverDescription);
       return;
     }
@@ -582,7 +589,14 @@ class GameState {
     this.loadingScreen = new LoadingScreen(`${choice.timePassed}...`);
 
     try {
-      const nextState = await this.narrativeManager.makeChoice(choiceIndex);
+      // Generate a random number of choices for the next state
+      const requestedChoiceCount = Math.floor(Math.random() * 5) + 1;
+
+      // Pass the requested choice count to the narrative manager
+      const nextState = await this.narrativeManager.makeChoice(
+        choiceIndex,
+        requestedChoiceCount
+      );
       this.currentNarrativeState = nextState;
 
       this.isLoadingResponse = false;
@@ -592,6 +606,7 @@ class GameState {
       const numChoices = nextState.choices.length;
       const worldNumber = Math.min(Math.max(numChoices, 1), 5);
       await this.changeRoom(worldNumber);
+      this.totalChoices++;
     } catch (error) {
       console.error("Error making narrative choice:", error);
       this.isLoadingResponse = false;

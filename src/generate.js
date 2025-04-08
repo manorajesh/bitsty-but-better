@@ -37,7 +37,8 @@ class NarrativeGameManager {
               },
               isGameOver: {
                 type: "boolean",
-                description: "Indicates if this choice ends the game.",
+                description:
+                  "Indicates if this choice ends the game. This happens very, very rarely.",
               },
               gameOverDescription: {
                 type: "string",
@@ -62,9 +63,10 @@ class NarrativeGameManager {
   /**
    * Start a new narrative game with a premise
    * @param {string} premise - The starting premise for the narrative
+   * @param {number} [requestedChoiceCount=3] - The number of choices to be generated
    * @returns {Promise<object>} - The initial narrative state with choices
    */
-  async startGame(premise) {
+  async startGame(premise, requestedChoiceCount = 3) {
     // Reset game state
     this.history = [];
     this.isGameOver = false;
@@ -73,11 +75,11 @@ class NarrativeGameManager {
       // Send the initial prompt to the API
       const prompt =
         `Imagine you are a very poetic guide navigating a train of thought. When a user ` +
-        `provides a problem or premise, respond with one to five distinct, poetic short ` +
+        `provides a problem or premise, respond with exactly ${requestedChoiceCount} distinct, poetic short ` +
         `direct choices that leads them down an interesting narrative. When the ` +
         `user responds with a choice, provide a very short description of what ` +
-        `happens and then one to five more choices. The premise is ${premise}`;
-      const response = await this.sendToGemini(premise);
+        `happens and then exactly ${requestedChoiceCount} more choices. The premise is ${premise}`;
+      const response = await this.sendToGemini(prompt);
       this.currentState = response;
       this.history.push({
         role: "user",
