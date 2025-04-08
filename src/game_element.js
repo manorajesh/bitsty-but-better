@@ -255,7 +255,9 @@ class DialogBox extends GameElement {
     this.text = text;
     this.words = text.split(" ");
     this.lines = [];
-    this.currentLine = 0;
+    this.currentPage = 0; // Track the current page instead of line
+    this.linesPerPage = 2; // Show 2 lines per page
+    this.currentLine = 0; // This is now the line within the current page
     this.currentChar = 0;
     this.timer = 0;
     this.charDelay = 50;
@@ -294,16 +296,44 @@ class DialogBox extends GameElement {
     if (this.readyToContinue) return;
 
     if (this.isSkipped) {
-      this.currentChar = this.lines[this.currentLine].length;
-      this.readyToContinue = true;
-      this.isSkipped = false;
+      const currentPageLine =
+        this.currentPage * this.linesPerPage + this.currentLine;
+      if (currentPageLine < this.lines.length) {
+        this.currentChar = this.lines[currentPageLine].length;
+      }
+
+      // Check if we need to skip to the next line within the page
+      if (
+        this.currentLine < this.linesPerPage - 1 &&
+        currentPageLine + 1 < this.lines.length
+      ) {
+        this.currentLine++;
+        this.currentChar = 0;
+        this.isSkipped = true;
+      } else {
+        this.readyToContinue = true;
+        this.isSkipped = false;
+      }
       return;
     }
 
     this.timer += deltaTime;
     if (this.timer >= this.charDelay) {
-      if (this.currentChar < this.lines[this.currentLine].length) {
+      const currentPageLine =
+        this.currentPage * this.linesPerPage + this.currentLine;
+
+      if (
+        currentPageLine < this.lines.length &&
+        this.currentChar < this.lines[currentPageLine].length
+      ) {
         this.currentChar++;
+      } else if (
+        this.currentLine < this.linesPerPage - 1 &&
+        currentPageLine + 1 < this.lines.length
+      ) {
+        // Move to the next line within the current page
+        this.currentLine++;
+        this.currentChar = 0;
       } else {
         this.readyToContinue = true;
       }
@@ -338,11 +368,18 @@ class DialogBox extends GameElement {
 
     ctx.font = "30px BitsyFont";
 
-    for (let i = 0; i <= this.currentLine; i++) {
+    for (let i = 0; i < this.linesPerPage; i++) {
+      const lineIndex = this.currentPage * this.linesPerPage + i;
+      if (lineIndex >= this.lines.length) break;
+
+      // Determine how much of this line to show
       const textToDraw =
-        i === this.currentLine
-          ? this.lines[i].substring(0, this.currentChar)
-          : this.lines[i];
+        i === this.currentLine &&
+        lineIndex === this.currentPage * this.linesPerPage + this.currentLine
+          ? this.lines[lineIndex].substring(0, this.currentChar)
+          : i < this.currentLine
+          ? this.lines[lineIndex]
+          : "";
 
       let x = 30;
       const baseY = boxY + 40 + i * 30;
@@ -376,12 +413,17 @@ class DialogBox extends GameElement {
 
   continue() {
     if (this.readyToContinue) {
-      if (this.currentLine < this.lines.length - 1) {
-        this.currentLine++;
+      const totalPages = Math.ceil(this.lines.length / this.linesPerPage);
+
+      if (this.currentPage < totalPages - 1) {
+        // Move to the next page
+        this.currentPage++;
+        this.currentLine = 0;
         this.currentChar = 0;
         this.readyToContinue = false;
         this.isSkipped = false;
       } else {
+        // We've shown all pages
         return true;
       }
     }
