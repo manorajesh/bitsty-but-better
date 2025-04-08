@@ -17,7 +17,7 @@ class NarrativeGameManager {
         choices: {
           type: "array",
           description:
-            "Three distinct, short direct choices leading to the next narrative, poetic step.",
+            "one to five distinct, short direct choices leading to the next narrative, poetic step.",
           items: {
             type: "object",
             properties: {

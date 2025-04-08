@@ -617,7 +617,7 @@ class GameState {
 
     try {
       // Get a unique choice count different from the previous one
-      const previousChoiceCount = this.lastRequestedChoiceCount;
+      const previousChoiceCount = this.currentNarrativeState.choices.length;
       const requestedChoiceCount = this.getUniqueChoiceCount();
 
       // Pass the requested choice count to the narrative manager
@@ -650,6 +650,8 @@ class GameState {
       console.log(
         `currentNarrativeState.choices.length: ${this.currentNarrativeState.choices.length}`
       );
+
+      console.log(`previousChoiceCount: ${previousChoiceCount}`);
 
       this.isLoadingResponse = false;
       this.loadingScreen = null;
