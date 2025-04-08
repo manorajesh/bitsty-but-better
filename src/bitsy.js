@@ -37,6 +37,8 @@ class GameState {
     this.portals = [];
 
     this.currentPortal = null;
+
+    this.lastRequestedChoiceCount = null; // Track the last requested choice count
   }
 
   showEndingScreen() {
@@ -530,14 +532,39 @@ class GameState {
     });
   }
 
+  getUniqueChoiceCount() {
+    const min = 1;
+    const max = 5;
+    // If we have a previous choice count, make sure we don't repeat it
+    if (this.lastRequestedChoiceCount !== null) {
+      // Generate all possible values except the last one
+      const possibleCounts = [];
+      for (let i = min; i <= max; i++) {
+        if (i !== this.lastRequestedChoiceCount) {
+          possibleCounts.push(i);
+        }
+      }
+      // Pick randomly from the valid options
+      const randomIndex = Math.floor(Math.random() * possibleCounts.length);
+      const newCount = possibleCounts[randomIndex];
+      this.lastRequestedChoiceCount = newCount;
+      return newCount;
+    } else {
+      // First time, just generate a random number
+      const newCount = Math.floor(Math.random() * max) + min;
+      this.lastRequestedChoiceCount = newCount;
+      return newCount;
+    }
+  }
+
   async startNarrativeGame(premise) {
     this.premiseInput.visible = false;
     this.isLoadingResponse = true;
     this.loadingScreen = new LoadingScreen("Assembling a moment in words...");
 
     try {
-      // Generate a random number of choices between 1 and 5
-      const requestedChoiceCount = Math.floor(Math.random() * 5) + 1;
+      // Get a unique choice count different from the previous one
+      const requestedChoiceCount = this.getUniqueChoiceCount();
 
       // Pass the requested choice count to the narrative manager
       const initialState = await this.narrativeManager.startGame(
@@ -589,8 +616,8 @@ class GameState {
     this.loadingScreen = new LoadingScreen(`${choice.timePassed}...`);
 
     try {
-      // Generate a random number of choices for the next state
-      const requestedChoiceCount = Math.floor(Math.random() * 5) + 1;
+      // Get a unique choice count different from the previous one
+      const requestedChoiceCount = this.getUniqueChoiceCount();
 
       // Pass the requested choice count to the narrative manager
       const nextState = await this.narrativeManager.makeChoice(
@@ -694,7 +721,7 @@ class GameState {
     const avatarPositions = {
       1: { x: 25, y: 25 },
       2: { x: 25, y: 25 },
-      3: { x: 25, y: 25 },
+      3: { x: 22, y: 45 },
       4: { x: 25, y: 25 },
       5: { x: 25, y: 25 },
     };
@@ -782,6 +809,13 @@ class GameState {
                       const portal = new Portal(x, y, -1, true, choiceIndex);
                       portal.isVisible = true;
                       this.portals.push(portal);
+
+                      // add tile based on random number
+                      if (Math.random() > 0.8) {
+                        console.log("Adding sparkle tile");
+                        const tile = new Tile(x, y, "images/sparkle_big.gif");
+                        this.worldTiles.push(tile);
+                      }
                     }
                   }
                 }

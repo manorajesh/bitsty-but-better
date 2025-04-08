@@ -126,7 +126,37 @@ class Avatar extends GameElement {
       return false;
     }
 
+    function getNumNonBackgroundAround(x, y) {
+      let count = 0;
+      for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
+          const color = gameState.getPixelColor(x + i, y + j);
+          if (
+            (i !== 0 || j !== 0) &&
+            (color.r !== 46 || color.g !== 39 || color.b !== 102)
+          ) {
+            count++;
+          }
+        }
+      }
+      return count;
+    }
+
     const color = gameState.getPixelColor(newX, newY);
+    const numNonBackground = getNumNonBackgroundAround(newX, newY);
+    if (
+      color.r === 46 &&
+      color.g === 39 &&
+      color.b === 102 &&
+      numNonBackground < 2
+    ) {
+      console.log(`Blocked by solid tile at (${newX}, ${newY})`);
+      return false;
+    }
+    console.log(
+      `Number of non-background pixels around (${newX}, ${newY}):`,
+      numNonBackground
+    );
     console.log(`Pixel color at (${newX}, ${newY}):`, color);
 
     // Check for obstructions (solid tiles or sprites)
