@@ -22,11 +22,22 @@ class GameState {
     this.gameStarted = false;
     this.debugMode = isDebugMode();
 
+    // Narrative game elements
+    this.narrativeManager = null;
+    this.currentNarrativeState = null;
+    this.isLoadingResponse = false;
+    this.loadingScreen = null;
+    this.premiseInput = null;
+    this.gameOverScreen = null;
+
     this.viewportX = 0;
     this.viewportY = 0;
 
     this.currentRoomNumber = 1;
     this.portals = [];
+
+    // Tracks the portal the player is currently at
+    this.currentPortal = null;
   }
 
   showEndingScreen() {
@@ -37,6 +48,14 @@ class GameState {
     );
 
     this.endingScreen.visible = true;
+  }
+
+  showGameOverScreen(description) {
+    this.gameOverScreen = new GameOverScreen(
+      description,
+      "Press ESC to restart"
+    );
+    this.gameOverScreen.visible = true;
   }
 
   gameLoop(timestamp) {
@@ -53,18 +72,33 @@ class GameState {
       return;
     }
 
+    if (this.loadingScreen && this.isLoadingResponse) {
+      this.loadingScreen.update(timestamp);
+      this.loadingScreen.draw(this.ctx);
+      requestAnimationFrame((ts) => this.gameLoop(ts));
+      return;
+    }
+
+    if (this.premiseInput && this.premiseInput.visible) {
+      this.premiseInput.update(timestamp);
+      this.premiseInput.draw(this.ctx);
+      requestAnimationFrame((ts) => this.gameLoop(ts));
+      return;
+    }
+
+    if (this.gameOverScreen && this.gameOverScreen.visible) {
+      this.gameOverScreen.update(timestamp);
+      this.gameOverScreen.draw(this.ctx);
+      requestAnimationFrame((ts) => this.gameLoop(ts));
+      return;
+    }
+
     if (this.endingScreen && this.endingScreen.visible) {
       this.endingScreen.update(timestamp);
       this.endingScreen.draw(this.ctx);
       requestAnimationFrame((ts) => this.gameLoop(ts));
       return;
     }
-    // const targetX = 15;
-    // const targetY = 15;
-    // if (this.avatar.x === targetX && this.avatar.y === targetY) {
-    //   this.showEndingScreen();
-    //   return;
-    // }
 
     if (this.backgroundImage) {
       const bgScaleX = this.backgroundImage.width / WORLD_SIZE;
@@ -207,13 +241,27 @@ class GameState {
           this.titleScreen.visible = false;
           this.gameStarted = true;
 
-          if (!this.gameStarted) {
-            this.dialog = new DialogBox(
-              "Welcome to the game! Use arrow keys to move."
-            );
-            this.gameStarted = true;
-          }
+          // Show premise input after title screen
+          this.showPremiseInput();
           return;
+        }
+        return;
+      }
+
+      if (this.premiseInput && this.premiseInput.visible) {
+        if (e.code === "Enter") {
+          const premise = this.premiseInput.submitInput();
+          this.startNarrativeGame(premise);
+          return;
+        }
+        this.premiseInput.handleKeyInput(e);
+        return;
+      }
+
+      if (this.gameOverScreen && this.gameOverScreen.visible) {
+        if (e.code === "Escape") {
+          this.gameOverScreen.visible = false;
+          this.showPremiseInput();
         }
         return;
       }
@@ -225,6 +273,11 @@ class GameState {
           const isFinished = this.dialog.continue();
           if (isFinished) {
             this.dialog = null;
+
+            // If player was at a portal with a choice, return to normal gameplay
+            if (this.currentPortal) {
+              this.currentPortal = null;
+            }
           }
         }
         return;
@@ -248,6 +301,12 @@ class GameState {
         case "KeyD":
           moved = this.avatar.move(1, 0, this);
           break;
+        case "KeyT":
+          // Make choice if player is at a portal
+          if (this.currentPortal) {
+            this.makeNarrativeChoice(this.currentPortal.portalId);
+          }
+          break;
         case "KeyE":
           if (GRID_SIZE > 4) {
             GRID_SIZE -= 4;
@@ -263,12 +322,55 @@ class GameState {
           }
           break;
         case "Escape":
-          this.showTitleScreen();
+          if (this.endingScreen && this.endingScreen.visible) {
+            this.showPremiseInput();
+            this.endingScreen.visible = false;
+          } else {
+            this.showTitleScreen();
+          }
           break;
       }
 
       if (moved) {
         this.centerViewportOnAvatar();
+
+        // Check if player is at a portal position
+        const portal = this.portals.find(
+          (portal) => portal.x === this.avatar.x && portal.y === this.avatar.y
+        );
+
+        if (portal) {
+          // Check if this is a narrative portal or a room-change portal
+          if (portal.targetRoomNumber === -1 && this.currentNarrativeState) {
+            console.log("Narrative portal found:", portal);
+            // This is a narrative portal
+            const choiceIndex = portal.portalId;
+            if (choiceIndex < this.currentNarrativeState.choices.length) {
+              const choice = this.currentNarrativeState.choices[choiceIndex];
+              this.currentPortal = portal;
+
+              // Enhanced logging to debug choice display
+              console.log("Displaying choice:", choice);
+              console.log("Choice title:", choice.title);
+              console.log("Choice description:", choice.description);
+
+              // Create dialog with more visible formatting
+              this.dialog = new DialogBox(
+                `${choice.title || "Option " + (choiceIndex + 1)}\n\n${
+                  choice.description || "No description available."
+                }\n\n(Press T to choose this option)`,
+                true,
+                true
+              );
+            } else {
+              console.warn(
+                `Invalid choice index: ${choiceIndex}. Only ${this.currentNarrativeState.choices.length} choices available.`
+              );
+            }
+          } else if (portal.targetRoomNumber > 0) {
+            this.changeRoom(portal.targetRoomNumber);
+          }
+        }
       }
     });
   }
@@ -348,19 +450,16 @@ class GameState {
               return;
             }
 
-            // Start from the third frame (index 2)
             for (
               let frameIndex = 2;
               frameIndex < Math.min(frameCount, 7);
               frameIndex++
             ) {
-              // Limit to 5 portals (frames 2-6)
               rub.move_to(frameIndex);
               const canvas = rub.get_canvas();
               const ctx = canvas.getContext("2d");
-              const targetRoomNumber = frameIndex - 1; // Map to room numbers 2, 3, 4, etc.
+              const targetRoomNumber = frameIndex - 1;
 
-              // Scan the entire image for blue pixels (portals)
               const imageData = ctx.getImageData(
                 0,
                 0,
@@ -373,19 +472,15 @@ class GameState {
               const pixelWidth = canvas.width / WORLD_SIZE;
               const pixelHeight = canvas.height / WORLD_SIZE;
 
-              // Track processed portal locations to avoid duplicates
               const processedLocations = new Set();
 
               for (let y = 0; y < WORLD_SIZE; y++) {
                 for (let x = 0; x < WORLD_SIZE; x++) {
-                  // Calculate the pixel location in the image (center of the tile)
                   const centerX = Math.floor((x + 0.5) * pixelWidth);
                   const centerY = Math.floor((y + 0.5) * pixelHeight);
 
-                  // Get the index in the imageData array
                   const index = (centerY * canvas.width + centerX) * 4;
 
-                  // Check if this is a blue pixel (portal)
                   if (
                     data[index] === 0 &&
                     data[index + 1] === 0 &&
@@ -395,7 +490,6 @@ class GameState {
                     if (!processedLocations.has(locationKey)) {
                       processedLocations.add(locationKey);
 
-                      // Add a portal at this location
                       const portalId = this.portals.length;
                       const portal = new Portal(
                         x,
@@ -404,11 +498,8 @@ class GameState {
                         true,
                         portalId
                       );
-                      portal.isVisible = true; // Make the portal visible
+                      portal.isVisible = true;
                       this.portals.push(portal);
-                      // console.log(
-                      //   `Added portal at ${x},${y} to room ${targetRoomNumber} (Portal ID: ${portalId})`
-                      // );
                     }
                   }
                 }
@@ -433,6 +524,87 @@ class GameState {
         reject(error);
       }
     });
+  }
+
+  async startNarrativeGame(premise) {
+    this.premiseInput.visible = false;
+    this.isLoadingResponse = true;
+    this.loadingScreen = new LoadingScreen("Generating your adventure...");
+
+    try {
+      const initialState = await this.narrativeManager.startGame(premise);
+      this.currentNarrativeState = initialState;
+
+      this.isLoadingResponse = false;
+      this.loadingScreen = null;
+      this.dialog = new DialogBox(initialState.description, true, true);
+
+      const numChoices = initialState.choices.length;
+      const worldNumber = Math.min(Math.max(numChoices, 1), 5);
+      await this.changeRoom(worldNumber);
+    } catch (error) {
+      console.error("Error starting narrative game:", error);
+      this.isLoadingResponse = false;
+      this.dialog = new DialogBox(
+        "Error starting game. Please try again.",
+        false,
+        false
+      );
+      setTimeout(() => {
+        this.dialog = null;
+        this.showPremiseInput();
+      }, 3000);
+    }
+  }
+
+  async makeNarrativeChoice(choiceIndex) {
+    if (
+      !this.currentNarrativeState ||
+      choiceIndex >= this.currentNarrativeState.choices.length
+    ) {
+      return;
+    }
+
+    const choice = this.currentNarrativeState.choices[choiceIndex];
+    this.dialog = null;
+    this.currentPortal = null;
+
+    if (choice.isGameOver) {
+      this.showGameOverScreen(choice.gameOverDescription);
+      return;
+    }
+
+    this.isLoadingResponse = true;
+    this.loadingScreen = new LoadingScreen(`${choice.timePassed}...`);
+
+    try {
+      const nextState = await this.narrativeManager.makeChoice(choiceIndex);
+      this.currentNarrativeState = nextState;
+
+      this.isLoadingResponse = false;
+      this.loadingScreen = null;
+      this.dialog = new DialogBox(nextState.description, true, true);
+
+      const numChoices = nextState.choices.length;
+      const worldNumber = Math.min(Math.max(numChoices, 1), 5);
+      await this.changeRoom(worldNumber);
+    } catch (error) {
+      console.error("Error making narrative choice:", error);
+      this.isLoadingResponse = false;
+      this.dialog = new DialogBox(
+        "Error processing your choice. Please try again.",
+        false,
+        false
+      );
+    }
+  }
+
+  showPremiseInput() {
+    this.premiseInput = new TextInputBox(
+      "Enter your story premise:",
+      "Type your adventure premise here..."
+    );
+    this.premiseInput.visible = true;
   }
 
   async changeRoom(roomNumber) {
@@ -463,7 +635,10 @@ class GameState {
 
     this.items = [];
     this.sprites = [];
-    if (this.currentRoomState[roomNumber]) {
+
+    if (this.currentNarrativeState) {
+      await this.createNarrativePortals();
+    } else if (this.currentRoomState[roomNumber]) {
       const roomState = this.currentRoomState[roomNumber];
 
       this.items = roomState.items.map((itemData) => {
@@ -498,49 +673,149 @@ class GameState {
     }
 
     const avatarPositions = {
-      1: { x: 36, y: 4 },
-      2: { x: 5, y: 5 },
-      3: { x: 10, y: 10 },
-      4: { x: 20, y: 20 },
-      5: { x: 30, y: 30 },
+      1: { x: 25, y: 25 },
+      2: { x: 25, y: 25 },
+      3: { x: 25, y: 25 },
+      4: { x: 25, y: 25 },
+      5: { x: 25, y: 25 },
     };
 
-    const pos = avatarPositions[roomNumber] || { x: 5, y: 5 };
+    const pos = avatarPositions[roomNumber] || { x: 25, y: 25 };
     this.avatar.x = pos.x;
     this.avatar.y = pos.y;
-    await this.loadPortalsFromGif(worldGifUrl);
+
+    if (!this.currentNarrativeState) {
+      await this.loadPortalsFromGif(worldGifUrl);
+    }
 
     this.centerViewportOnAvatar();
   }
 
+  async createNarrativePortals() {
+    if (!this.currentNarrativeState || !this.currentNarrativeState.choices) {
+      return;
+    }
+
+    const worldGifUrl = `images/world${this.currentRoomNumber}.gif`;
+
+    return new Promise((resolve, reject) => {
+      try {
+        const tempImage = document.createElement("img");
+        tempImage.onload = () => {
+          const rub = new SuperGif({
+            gif: tempImage,
+            auto_play: false,
+          });
+
+          rub.load(() => {
+            const frameCount = rub.get_length();
+            if (frameCount < 3) {
+              console.warn(
+                `GIF has less than 3 frames, no portals will be loaded for narrative choices: ${worldGifUrl}`
+              );
+              resolve();
+              return;
+            }
+
+            for (
+              let frameIndex = 2;
+              frameIndex <
+              Math.min(
+                frameCount,
+                2 + this.currentNarrativeState.choices.length
+              );
+              frameIndex++
+            ) {
+              rub.move_to(frameIndex);
+              const canvas = rub.get_canvas();
+              const ctx = canvas.getContext("2d");
+              const choiceIndex = frameIndex - 2;
+
+              const imageData = ctx.getImageData(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
+              const data = imageData.data;
+
+              // Calculate scaling factors
+              const pixelWidth = canvas.width / WORLD_SIZE;
+              const pixelHeight = canvas.height / WORLD_SIZE;
+
+              const processedLocations = new Set();
+
+              for (let y = 0; y < WORLD_SIZE; y++) {
+                for (let x = 0; x < WORLD_SIZE; x++) {
+                  // Calculate the pixel location in the image (center of the tile)
+                  const centerX = Math.floor((x + 0.5) * pixelWidth);
+                  const centerY = Math.floor((y + 0.5) * pixelHeight);
+
+                  // Get the index in the imageData array
+                  const index = (centerY * canvas.width + centerX) * 4;
+
+                  // Check if this is a blue pixel (portal)
+                  if (
+                    data[index] === 0 &&
+                    data[index + 1] === 0 &&
+                    data[index + 2] === 255
+                  ) {
+                    const locationKey = `${x},${y}`;
+                    if (!processedLocations.has(locationKey)) {
+                      processedLocations.add(locationKey);
+
+                      // Add a portal at this location
+                      const portal = new Portal(
+                        x,
+                        y,
+                        -1, // We're not changing rooms, just making choices
+                        true,
+                        choiceIndex
+                      );
+                      portal.isVisible = true;
+                      this.portals.push(portal);
+                    }
+                  }
+                }
+              }
+            }
+
+            console.log(
+              `Created ${this.portals.length} narrative portals from ${worldGifUrl}`
+            );
+            resolve();
+          });
+        };
+
+        tempImage.onerror = () => {
+          reject(
+            new Error(
+              `Failed to load world GIF for narrative portals: ${worldGifUrl}`
+            )
+          );
+        };
+
+        tempImage.src = worldGifUrl;
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
   async initialize() {
     console.log("Initializing game...");
-    const gameManager = new NarrativeGameManager(
+
+    this.narrativeManager = new NarrativeGameManager(
       "AIzaSyDds9iN85cgeUisvbNUe4mDZlRp663kERc"
     );
+
     this.titleScreen = new TitleScreen(
-      "bitsy but better",
-      "a little fun demo",
+      "Narrative Adventure",
+      "A game powered by AI",
       "Press ENTER to start"
     );
 
-    this.currentRoomNumber = 1;
-    await this.loadWorld("images/world1.gif");
-
-    this.avatar = new Avatar(25, 4, "images/yellow_blob.gif");
-    this.items.push(
-      new Item(
-        30,
-        5,
-        "images/sparkle_big.gif",
-        "sparkle",
-        "You found a sparkle!"
-      )
-    );
-    // this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
-    this.worldTiles.push(new ExitTile(15, 15, "images/door.png"));
-
-    await this.loadPortalsFromGif("images/world1.gif");
+    this.avatar = new Avatar(25, 25, "images/yellow_blob.gif");
 
     this.centerViewportOnAvatar();
 

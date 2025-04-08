@@ -5,7 +5,6 @@ class NarrativeGameManager {
     this.currentState = null;
     this.isGameOver = false;
 
-    // Configuration for the Gemini model
     this.responseSchema = {
       type: "object",
       description: "Response for a narrative train-of-thought game.",

@@ -110,42 +110,48 @@ class GameElement {
 }
 
 class Avatar extends GameElement {
+  /**
+   * Checks if the avatar can move to the specified position
+   * @param {number} dx - X direction
+   * @param {number} dy - Y direction
+   * @param {GameState} gameState - Current game state
+   * @returns {boolean} - Whether the avatar moved
+   */
   move(dx, dy, gameState) {
     const newX = this.x + dx;
     const newY = this.y + dy;
 
-    const sprite = gameState.sprites.find(
-      (sprite) => sprite.x === newX && sprite.y === newY
-    );
-    if (sprite) {
-      sprite.interact(gameState);
-      return false;
-    }
-    const portal = gameState.portals.find(
-      (portal) => portal.x === newX && portal.y === newY
-    );
-    if (portal) {
-      portal.interact(gameState);
+    // Check for world boundaries
+    if (newX < 0 || newX >= WORLD_SIZE || newY < 0 || newY >= WORLD_SIZE) {
       return false;
     }
 
-    const item = gameState.items.find(
-      (item) => item.x === newX && item.y === newY && !item.collected
+    // Check for obstructions (solid tiles or sprites)
+    const solid = gameState.worldTiles.some(
+      (tile) => tile.x === newX && tile.y === newY && tile.solid
     );
-    if (item) {
-      item.collect(gameState);
-      this.inventory.push(item);
-    }
-    const { r, g, b } = gameState.getPixelColor(newX, newY);
-    if (r === 46 && g === 39 && b === 102) {
+
+    if (solid) {
       return false;
     }
-    if (newX >= 0 && newX < WORLD_SIZE && newY >= 0 && newY < WORLD_SIZE) {
-      this.x = newX;
-      this.y = newY;
-      return true;
+
+    // The avatar can move, update position
+    this.x = newX;
+    this.y = newY;
+
+    // Check for portals but DON'T automatically handle them here
+    // This is important - let the main game loop handle portals
+    const portal = gameState.portals.find(
+      (p) => p.x === this.x && p.y === this.y
+    );
+
+    if (portal) {
+      console.log(`Player at portal #${portal.portalId}`);
+      // Don't change rooms directly here! Let the main game handle it
+      // Remove any code that would directly call changeRoom
     }
-    return false;
+
+    return true;
   }
 }
 
@@ -487,6 +493,271 @@ class TitleScreen extends GameElement {
       borderY + innerPulse,
       borderWidth - innerPulse * 2,
       borderHeight - innerPulse * 2
+    );
+  }
+}
+
+class LoadingScreen extends GameElement {
+  constructor(message = "Loading...") {
+    super(0, 0, null);
+    this.message = message;
+    this.dots = 0;
+    this.dotTimer = 0;
+    this.animationProgress = 0;
+  }
+
+  update(timestamp) {
+    super.update(timestamp);
+    const deltaTime = timestamp - (this.lastUpdate || timestamp);
+    this.lastUpdate = timestamp;
+
+    this.animationProgress += deltaTime * 0.002;
+
+    this.dotTimer += deltaTime;
+    if (this.dotTimer > 500) {
+      this.dots = (this.dots + 1) % 4;
+      this.dotTimer = 0;
+    }
+  }
+
+  draw(ctx) {
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+
+    // Background
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Loading text
+    ctx.font = "30px BitsyFont, monospace";
+    ctx.fillStyle = "#FFF";
+
+    const dotStr = ".".repeat(this.dots);
+    const text = `${this.message}${dotStr}`;
+
+    const textWidth = ctx.measureText(text).width;
+    ctx.fillText(text, (canvasWidth - textWidth) / 2, canvasHeight / 2);
+
+    // Loading spinner
+    const spinnerSize = 50;
+    const spinnerX = canvasWidth / 2;
+    const spinnerY = canvasHeight / 2 + 50;
+    const spinnerAngle = this.animationProgress * Math.PI * 2;
+
+    ctx.save();
+    ctx.translate(spinnerX, spinnerY);
+    ctx.rotate(spinnerAngle);
+
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const x = (Math.cos(angle) * spinnerSize) / 2;
+      const y = (Math.sin(angle) * spinnerSize) / 2;
+      const alpha = 0.2 + (i / 8) * 0.8;
+
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
+class TextInputBox extends GameElement {
+  constructor(promptText, placeholder = "") {
+    super(0, 0, null);
+    this.promptText = promptText;
+    this.placeholder = placeholder;
+    this.userInput = "";
+    this.visible = true;
+    this.cursorVisible = true;
+    this.cursorBlinkTime = 0;
+  }
+
+  update(timestamp) {
+    super.update(timestamp);
+    const deltaTime = timestamp - (this.lastUpdate || timestamp);
+    this.lastUpdate = timestamp;
+
+    this.cursorBlinkTime += deltaTime;
+    if (this.cursorBlinkTime > 500) {
+      this.cursorVisible = !this.cursorVisible;
+      this.cursorBlinkTime = 0;
+    }
+  }
+
+  draw(ctx) {
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+
+    // Background
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Prompt text
+    ctx.font = "24px BitsyFont, monospace";
+    ctx.fillStyle = "#FFF";
+    const promptWidth = ctx.measureText(this.promptText).width;
+    ctx.fillText(
+      this.promptText,
+      (canvasWidth - promptWidth) / 2,
+      canvasHeight / 3
+    );
+
+    // Input box
+    const boxWidth = canvasWidth * 0.8;
+    const boxHeight = 40;
+    const boxX = (canvasWidth - boxWidth) / 2;
+    const boxY = canvasHeight / 2 - boxHeight / 2;
+
+    ctx.fillStyle = "#111";
+    ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+    // Input text or placeholder
+    ctx.font = "18px BitsyFont, monospace";
+
+    if (this.userInput.length > 0) {
+      ctx.fillStyle = "#FFF";
+      ctx.fillText(this.userInput, boxX + 10, boxY + boxHeight / 2 + 6);
+
+      // Cursor
+      if (this.cursorVisible) {
+        const textWidth = ctx.measureText(this.userInput).width;
+        ctx.fillRect(boxX + 10 + textWidth, boxY + 10, 2, boxHeight - 20);
+      }
+    } else {
+      // Placeholder
+      ctx.fillStyle = "#555";
+      ctx.fillText(this.placeholder, boxX + 10, boxY + boxHeight / 2 + 6);
+    }
+
+    // Instructions
+    ctx.font = "16px BitsyFont, monospace";
+    ctx.fillStyle = "#AAA";
+    const instructionText = "Press Enter when ready";
+    const instructionWidth = ctx.measureText(instructionText).width;
+    ctx.fillText(
+      instructionText,
+      (canvasWidth - instructionWidth) / 2,
+      boxY + boxHeight + 30
+    );
+  }
+
+  handleKeyInput(e) {
+    if (e.key === "Backspace") {
+      this.userInput = this.userInput.slice(0, -1);
+    } else if (e.key === "Escape") {
+      this.userInput = "";
+    } else if (e.key.length === 1) {
+      // Single character
+      this.userInput += e.key;
+    }
+  }
+
+  submitInput() {
+    const input = this.userInput.trim() || "Adventure in a magical world";
+    this.userInput = "";
+    return input;
+  }
+}
+
+class GameOverScreen extends GameElement {
+  constructor(description, instructions = "Press ESC to restart") {
+    super(0, 0, null);
+    this.description = description;
+    this.instructions = instructions;
+    this.visible = true;
+    this.animationProgress = 0;
+    this.lines = [];
+
+    // Break description into lines for better display
+    const words = description.split(" ");
+    const maxCharsPerLine = 40;
+    let currentLine = "";
+
+    for (const word of words) {
+      if ((currentLine + " " + word).length <= maxCharsPerLine) {
+        currentLine += (currentLine ? " " : "") + word;
+      } else {
+        this.lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine) {
+      this.lines.push(currentLine);
+    }
+  }
+
+  update(timestamp) {
+    super.update(timestamp);
+    const deltaTime = timestamp - (this.lastUpdate || timestamp);
+    this.lastUpdate = timestamp;
+
+    this.animationProgress += deltaTime * 0.001;
+  }
+
+  draw(ctx) {
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+
+    // Background with vignette effect
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    const gradient = ctx.createRadialGradient(
+      canvasWidth / 2,
+      canvasHeight / 2,
+      100,
+      canvasWidth / 2,
+      canvasHeight / 2,
+      canvasHeight
+    );
+    gradient.addColorStop(0, "rgba(0,0,0,0)");
+    gradient.addColorStop(1, "rgba(0,0,0,0.8)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Game over title
+    ctx.font = "36px BitsyFont, monospace";
+    ctx.fillStyle = "#FF3333";
+    const gameOverText = "GAME OVER";
+    const gameOverWidth = ctx.measureText(gameOverText).width;
+    ctx.fillText(
+      gameOverText,
+      (canvasWidth - gameOverWidth) / 2,
+      canvasHeight / 4
+    );
+
+    // Description
+    ctx.font = "20px BitsyFont, monospace";
+    ctx.fillStyle = "#FFFFFF";
+
+    const lineHeight = 30;
+    const startY = canvasHeight / 2 - (this.lines.length * lineHeight) / 2;
+
+    this.lines.forEach((line, index) => {
+      const lineWidth = ctx.measureText(line).width;
+      ctx.fillText(
+        line,
+        (canvasWidth - lineWidth) / 2,
+        startY + index * lineHeight
+      );
+    });
+
+    // Instructions
+    const pulse = Math.sin(this.animationProgress * 4) * 0.3 + 0.7;
+    ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+    ctx.font = "18px BitsyFont, monospace";
+    const instructionWidth = ctx.measureText(this.instructions).width;
+    ctx.fillText(
+      this.instructions,
+      (canvasWidth - instructionWidth) / 2,
+      canvasHeight * 0.85
     );
   }
 }
