@@ -607,7 +607,7 @@ class GameState {
     this.dialog = null;
     this.currentPortal = null;
 
-    if (choice.isGameOver && this.totalChoices > 5) {
+    if (choice.isGameOver && this.totalChoices >= 5) {
       this.showGameOverScreen(choice.gameOverDescription);
       return;
     }
@@ -625,6 +625,16 @@ class GameState {
         requestedChoiceCount
       );
       this.currentNarrativeState = nextState;
+
+      if (this.currentNarrativeState.choices.length < 2) {
+        console.log(
+          "There is an issue with the single choice screen. Default to game over."
+        );
+        this.loadingScreen = null;
+        this.isLoadingResponse = false;
+        this.showGameOverScreen(choice.gameOverDescription);
+        return;
+      }
 
       this.isLoadingResponse = false;
       this.loadingScreen = null;
@@ -671,6 +681,7 @@ class GameState {
       })),
     };
     this.portals = [];
+    this.worldTiles = [];
     this.currentRoomNumber = roomNumber;
 
     const worldGifUrl = `images/world${roomNumber}.gif`;
@@ -720,10 +731,10 @@ class GameState {
 
     const avatarPositions = {
       1: { x: 25, y: 25 },
-      2: { x: 25, y: 25 },
+      2: { x: 26, y: 45 },
       3: { x: 22, y: 45 },
-      4: { x: 25, y: 25 },
-      5: { x: 25, y: 25 },
+      4: { x: 26, y: 6 },
+      5: { x: 10, y: 39 },
     };
 
     const pos = avatarPositions[roomNumber] || { x: 25, y: 25 };
@@ -812,7 +823,6 @@ class GameState {
 
                       // add tile based on random number
                       if (Math.random() > 0.8) {
-                        console.log("Adding sparkle tile");
                         const tile = new Tile(x, y, "images/sparkle_big.gif");
                         this.worldTiles.push(tile);
                       }

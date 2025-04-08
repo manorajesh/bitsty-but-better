@@ -126,6 +126,10 @@ class Avatar extends GameElement {
       return false;
     }
 
+    function isBackgroundColor(color) {
+      return color.r === 46 && color.g === 39 && color.b === 102;
+    }
+
     function getNumNonBackgroundAround(x, y) {
       let count = 0;
       for (let i = -1; i <= 1; i++) {
