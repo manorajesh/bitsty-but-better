@@ -155,6 +155,11 @@ class GameState {
       }
     });
 
+    // Check if dialog is completely finished
+    if (this.dialog && this.dialog.isCompletelyFinished) {
+      this.dialog = null;
+    }
+
     if (this.dialog) {
       this.dialog.update(timestamp);
       this.dialog.draw(this.ctx, this.viewportX, this.viewportY);
@@ -270,12 +275,8 @@ class GameState {
           this.dialog.skip();
         } else {
           const isFinished = this.dialog.continue();
-          if (isFinished) {
+          if (isFinished || this.dialog.isCompletelyFinished) {
             this.dialog = null;
-
-            // if (this.currentPortal) {
-            //   this.currentPortal = null;
-            // }
           }
         }
         return;
@@ -424,13 +425,13 @@ class GameState {
       canvasY < 0 ||
       canvasY >= this.canvas.height
     ) {
-      return { r: 0, g: 0, b: 0 }; // Default to black if out of bounds
+      return { r: 0, g: 0, b: 0 };
     }
 
     const imageData = this.ctx.getImageData(canvasX, canvasY, 1, 1);
     const [r, g, b] = imageData.data;
 
-    console.log(`Pixel color at (${x}, ${y}):`, { r, g, b }); // Debugging
+    console.log(`Pixel color at (${x}, ${y}):`, { r, g, b });
     return { r, g, b };
   }
 
@@ -540,7 +541,7 @@ class GameState {
 
       this.isLoadingResponse = false;
       this.loadingScreen = null;
-      this.dialog = new DialogBox(initialState.description, false, false);
+      this.dialog = new DialogBox(initialState.description, false, false, true);
 
       const numChoices = initialState.choices.length;
       const worldNumber = Math.min(Math.max(numChoices, 1), 5);
@@ -820,7 +821,10 @@ class GameState {
   }
   isWalkable(x, y) {
     const { r, g, b } = this.getPixelColor(x, y);
-    return !(r === 49 && g === 36 && b === 102); // Return false for unwalkable
+    if (r === 49 && g === 36 && b === 102) {
+      return false;
+    }
+    return true;
   }
 }
 

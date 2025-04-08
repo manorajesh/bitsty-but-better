@@ -259,7 +259,7 @@ class Portal extends GameElement {
 }
 
 class DialogBox extends GameElement {
-  constructor(text, isColor = false, isRipple = false) {
+  constructor(text, isColor = false, isRipple = false, isFirstDialog = false) {
     super(0, 0, null);
     this.text = text;
     this.words = text.split(" ");
@@ -275,6 +275,16 @@ class DialogBox extends GameElement {
     this.isColor = isColor;
     this.isRipple = isRipple;
     this.rippleProgress = 0;
+
+    // New properties for fade effect
+    this.isFirstDialog = isFirstDialog;
+    this.isFading = false;
+    this.fadeProgress = 0;
+    this.fadeSpeed = 0.001; // Controls how fast the fade occurss
+
+    // Add a new property to track if the dialog is completely finished
+    this.isCompletelyFinished = false;
+
     this.prepareDialog();
   }
 
@@ -300,6 +310,16 @@ class DialogBox extends GameElement {
 
     if (this.isRipple || this.isColor) {
       this.rippleProgress += deltaTime * 0.003;
+    }
+
+    // Handle fade effect
+    if (this.isFading) {
+      this.fadeProgress += deltaTime * this.fadeSpeed;
+      if (this.fadeProgress >= 1) {
+        this.fadeProgress = 1;
+        // Mark as completely finished when fade is complete
+        this.isCompletelyFinished = true;
+      }
     }
 
     if (this.readyToContinue) return;
@@ -367,8 +387,28 @@ class DialogBox extends GameElement {
   }
 
   draw(ctx, viewportX = 0, viewportY = 0) {
+    // If completely finished, don't draw anything
+    if (this.isCompletelyFinished) return;
+
     const canvasWidth = ctx.canvas.width;
     const canvasHeight = ctx.canvas.height;
+
+    // If it's the first dialog and not fading, cover the entire screen with black
+    if (this.isFirstDialog && !this.isFading) {
+      ctx.fillStyle = "rgb(0,0,0)";
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    }
+    // If it's fading, draw a semi-transparent black overlay
+    else if (this.isFirstDialog && this.isFading) {
+      const alpha = 1 - this.fadeProgress;
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // If fully faded, don't draw the dialog box
+      if (this.fadeProgress >= 0.95) {
+        return;
+      }
+    }
 
     const boxHeight = 100;
     const boxY = canvasHeight - boxHeight - 20;
@@ -433,10 +473,24 @@ class DialogBox extends GameElement {
         this.isSkipped = false;
       } else {
         // We've shown all pages
+        // If this is the first dialog, start the fade effect
+        if (this.isFirstDialog) {
+          this.isFading = true;
+          return false; // Don't dismiss the dialog until fade is complete
+        }
         return true;
       }
     }
     return false;
+  }
+
+  // Add a method to check if the dialog is truly finished
+  isFinished() {
+    return (
+      this.isCompletelyFinished ||
+      (this.readyToContinue && !this.isFirstDialog) ||
+      (this.isFading && this.fadeProgress >= 1)
+    );
   }
 }
 
