@@ -617,6 +617,7 @@ class GameState {
 
     try {
       // Get a unique choice count different from the previous one
+      const previousChoiceCount = this.lastRequestedChoiceCount;
       const requestedChoiceCount = this.getUniqueChoiceCount();
 
       // Pass the requested choice count to the narrative manager
@@ -635,6 +636,20 @@ class GameState {
         this.showGameOverScreen(choice.gameOverDescription);
         return;
       }
+
+      if (previousChoiceCount === this.currentNarrativeState.choices.length) {
+        console.log(
+          "Same number of choices as before. Removing the last choice."
+        );
+
+        this.currentNarrativeState.choices.pop();
+        this.lastRequestedChoiceCount =
+          this.currentNarrativeState.choices.length;
+      }
+
+      console.log(
+        `currentNarrativeState.choices.length: ${this.currentNarrativeState.choices.length}`
+      );
 
       this.isLoadingResponse = false;
       this.loadingScreen = null;
@@ -858,7 +873,7 @@ class GameState {
     console.log("Initializing game...");
 
     this.narrativeManager = new NarrativeGameManager(
-      "AIzaSyDds9iN85cgeUisvbNUe4mDZlRp663kERc"
+      "AIzaSyBz0DGinHELRRGrGMm-cH6jSIe1ngi00Hs"
     );
 
     this.titleScreen = new TitleScreen(
