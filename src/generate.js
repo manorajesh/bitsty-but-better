@@ -7,17 +7,17 @@ class NarrativeGameManager {
 
     this.responseSchema = {
       type: "object",
-      description: "Response for a narrative train-of-thought game.",
+      description: "Response for a narrative, poetic train-of-thought game.",
       properties: {
         description: {
           type: "string",
           description:
-            "A brief narrative setting the scene or summarizing what happens after a choice.",
+            "A brief narrative, poetic setting the scene or summarizing what happens after a choice.",
         },
         choices: {
           type: "array",
           description:
-            "Three distinct, short direct choices leading to the next narrative step.",
+            "Three distinct, short direct choices leading to the next narrative, poetic step.",
           items: {
             type: "object",
             properties: {
@@ -28,12 +28,12 @@ class NarrativeGameManager {
               description: {
                 type: "string",
                 description:
-                  "A short narrative prompt that describes the choice.",
+                  "A short narrative, poetic prompt that describes the choice.",
               },
               timePassed: {
                 type: "string",
                 description:
-                  "A narrative note on the time elapsed since the last choice (e.g., 'moments later').",
+                  "A narrative, poetic note on the time elapsed since the last choice (e.g., 'moments later').",
               },
               isGameOver: {
                 type: "boolean",
@@ -42,7 +42,7 @@ class NarrativeGameManager {
               gameOverDescription: {
                 type: "string",
                 description:
-                  "A narrative description of the ending if this choice ends the game.",
+                  "A narrative, poetic description of the ending if this choice ends the game.",
               },
             },
             required: [
@@ -71,6 +71,12 @@ class NarrativeGameManager {
 
     try {
       // Send the initial prompt to the API
+      const prompt =
+        `Imagine you are a very poetic guide navigating a train of thought. When a user ` +
+        `provides a problem or premise, respond with one to five distinct, poetic short ` +
+        `direct choices that leads them down an interesting narrative. When the ` +
+        `user responds with a choice, provide a very short description of what ` +
+        `happens and then one to five more choices. The premise is ${premise}`;
       const response = await this.sendToGemini(premise);
       this.currentState = response;
       this.history.push({

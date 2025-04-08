@@ -273,9 +273,9 @@ class GameState {
           if (isFinished) {
             this.dialog = null;
 
-            if (this.currentPortal) {
-              this.currentPortal = null;
-            }
+            // if (this.currentPortal) {
+            //   this.currentPortal = null;
+            // }
           }
         }
         return;
@@ -301,6 +301,10 @@ class GameState {
           break;
         case "KeyT":
           if (this.currentPortal) {
+            console.log(
+              "Making choice at portal:",
+              this.currentPortal.portalId
+            );
             this.makeNarrativeChoice(this.currentPortal.portalId);
           } else if (this.currentNarrativeState) {
             this.dialog = new DialogBox(
@@ -349,16 +353,16 @@ class GameState {
               const choice = this.currentNarrativeState.choices[choiceIndex];
               this.currentPortal = portal;
 
-              console.log("Displaying choice:", choice);
-              console.log("Choice title:", choice.title);
-              console.log("Choice description:", choice.description);
+              // console.log("Displaying choice:", choice);
+              // console.log("Choice title:", choice.title);
+              // console.log("Choice description:", choice.description);
 
               this.dialog = new DialogBox(
                 `${choice.title || "Option " + (choiceIndex + 1)}\n\n${
                   choice.description || "No description available."
                 }\n\n(Press T to choose this option)`,
-                true,
-                true
+                false,
+                false
               );
             } else {
               console.warn(
