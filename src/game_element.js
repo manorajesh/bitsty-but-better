@@ -1,4 +1,3 @@
-// Base class for all game elements
 class GameElement {
   constructor(x, y, imageUrl) {
     this.x = x;
@@ -87,7 +86,6 @@ class GameElement {
     }
   }
 
-  // Updated draw method to account for viewport offset
   draw(ctx, viewportX = 0, viewportY = 0) {
     if (this.loaded && this.frames.length > 0) {
       const screenX = (this.x - viewportX) * CELL_SIZE;
@@ -119,13 +117,12 @@ class Avatar extends GameElement {
       (sprite) => sprite.x === newX && sprite.y === newY
     );
 
-    // Check for portals first
     const portal = gameState.portals.find(
       (portal) => portal.x === newX && portal.y === newY
     );
     if (portal) {
       portal.interact(gameState);
-      return false; // Movement handled by room change
+      return false;
     }
 
     if (sprite) {
@@ -140,15 +137,13 @@ class Avatar extends GameElement {
       this.inventory.push(item);
     }
 
-    // worldTiles is a 1D array, so we need to convert 2D coordinates to 1D
-    const wallTile = gameState.worldTiles.find(
-      (tile) => tile.x === newX && tile.y === newY && tile.isWall
-    );
-    if (wallTile) {
-      return;
-    }
+    // const wallTile = gameState.worldTiles.find(
+    //   (tile) => tile.x === newX && tile.y === newY && tile.isWall
+    // );
+    // if (wallTile) {
+    //   return;
+    // }
 
-    // Check world boundaries, not just viewport
     if (newX >= 0 && newX < WORLD_SIZE && newY >= 0 && newY < WORLD_SIZE) {
       this.x = newX;
       this.y = newY;
@@ -159,9 +154,16 @@ class Avatar extends GameElement {
 }
 
 class Tile extends GameElement {
-  constructor(x, y, imageUrl, isWall = false) {
+  constructor(x, y, imageUrl, isWall = false, isInvisible = false) {
     super(x, y, imageUrl);
     this.isWall = isWall;
+    this.isInvisible = isInvisible;
+  }
+
+  draw(ctx, viewportX = 0, viewportY = 0) {
+    if (!this.isInvisible) {
+      super.draw(ctx, viewportX, viewportY);
+    }
   }
 }
 
@@ -216,15 +218,14 @@ class Item extends GameElement {
 
 class Portal extends GameElement {
   constructor(x, y, targetRoom, isForward = true, portalId = -1) {
-    // Use a transparent image or specific portal images based on direction
     const imageUrl = isForward
       ? "images/forward_portal.png"
       : "images/backward_portal.png";
     super(x, y, imageUrl);
     this.targetRoom = targetRoom;
     this.isForward = isForward;
-    this.isVisible = false; // Portals are invisible by default
-    this.portalId = portalId; // Store the portal ID
+    this.isVisible = false;
+    this.portalId = portalId;
   }
 
   interact(gameState) {
@@ -232,13 +233,11 @@ class Portal extends GameElement {
     gameState.changeRoom(this.targetRoom);
   }
 
-  // Override draw to make portals invisible (but still interactive)
   draw(ctx, viewportX = 0, viewportY = 0, isDebugMode = false) {
     if (this.isVisible) {
       super.draw(ctx, viewportX, viewportY);
     }
 
-    // Debug mode: show portal location with a semi-transparent overlay
     if (isDebugMode) {
       const screenX = (this.x - viewportX) * CELL_SIZE;
       const screenY = (this.y - viewportY) * CELL_SIZE;
@@ -251,7 +250,6 @@ class Portal extends GameElement {
   }
 }
 
-// --- Dialog/Text Effect ---
 class DialogBox extends GameElement {
   constructor(text, isColor = false, isRipple = false) {
     super(0, 0, null);
@@ -285,7 +283,6 @@ class DialogBox extends GameElement {
   }
 
   update(timestamp) {
-    // Call parent update for any frame-related animation
     super.update(timestamp);
 
     const deltaTime = timestamp - (this.lastDialogUpdate || timestamp);
@@ -297,7 +294,6 @@ class DialogBox extends GameElement {
 
     if (this.readyToContinue) return;
 
-    // If skipped, show entire current line
     if (this.isSkipped) {
       this.currentChar = this.lines[this.currentLine].length;
       this.readyToContinue = true;
@@ -332,12 +328,10 @@ class DialogBox extends GameElement {
     return `rgb(${Math.floor(red)}, ${Math.floor(green)}, ${Math.floor(blue)})`;
   }
 
-  // Override draw from GameElement
   draw(ctx, viewportX = 0, viewportY = 0) {
     const canvasWidth = ctx.canvas.width;
     const canvasHeight = ctx.canvas.height;
 
-    // Draw semi-transparent dialog background at the bottom
     const boxHeight = 100;
     const boxY = canvasHeight - boxHeight - 20;
     ctx.fillStyle = "rgba(0,0,0,0.7)";
@@ -387,7 +381,7 @@ class DialogBox extends GameElement {
         this.currentLine++;
         this.currentChar = 0;
         this.readyToContinue = false;
-        this.isSkipped = false; // Reset skip state for next line
+        this.isSkipped = false;
       } else {
         return true;
       }
@@ -396,7 +390,6 @@ class DialogBox extends GameElement {
   }
 }
 
-// Title Screen for the game
 class TitleScreen extends GameElement {
   constructor(title, subtitle = "", instructions = "") {
     super(0, 0, null);
@@ -439,7 +432,6 @@ class TitleScreen extends GameElement {
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Draw decorative animated elements (subtle pixel stars)
     ctx.fillStyle = "#333";
     this.decorations.forEach((dot) => {
       ctx.fillRect(
@@ -450,7 +442,6 @@ class TitleScreen extends GameElement {
       );
     });
 
-    // Draw title with slight animation effect
     const titleY = canvasHeight * 0.35;
     const titleOffset = Math.sin(this.animationProgress * 2) * 3;
 
@@ -474,9 +465,7 @@ class TitleScreen extends GameElement {
       );
     }
 
-    // Draw instructions with pulsing effect
     if (this.instructions) {
-      // Pulse effect - alpha oscillates between 0.3 and 1.0
       const pulse = Math.sin(this.animationProgress * 4) * 0.35 + 0.65;
       ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
       ctx.font = "18px BitsyFont, monospace";
@@ -488,7 +477,6 @@ class TitleScreen extends GameElement {
       );
     }
 
-    // Draw a decorative border
     const borderWidth = Math.min(canvasWidth, canvasHeight) * 0.8;
     const borderHeight = Math.min(canvasWidth, canvasHeight) * 0.6;
     const borderX = (canvasWidth - borderWidth) / 2;
@@ -498,7 +486,6 @@ class TitleScreen extends GameElement {
     ctx.lineWidth = 3;
     ctx.strokeRect(borderX, borderY, borderWidth, borderHeight);
 
-    // Draw inner border with animation
     const innerPulse = Math.sin(this.animationProgress * 2) * 5 + 10;
     ctx.strokeStyle = "#555";
     ctx.lineWidth = 1;

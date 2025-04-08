@@ -1,5 +1,5 @@
 let GRID_SIZE = 16;
-const WORLD_SIZE = 32; // Set WORLD_SIZE as a constant
+const WORLD_SIZE = 64;
 let CELL_SIZE;
 
 function isDebugMode() {
@@ -25,7 +25,6 @@ class GameState {
     this.viewportX = 0;
     this.viewportY = 0;
 
-    // Room management
     this.currentRoomNumber = 1;
     this.portals = [];
   }
@@ -60,7 +59,7 @@ class GameState {
       requestAnimationFrame((ts) => this.gameLoop(ts));
       return;
     }
-    const targetX = 15; //replace x and y with the actual target coordinates
+    const targetX = 15;
     const targetY = 15;
     if (this.avatar.x === targetX && this.avatar.y === targetY) {
       this.showEndingScreen();
@@ -98,7 +97,6 @@ class GameState {
       }
     });
 
-    // Draw sprites and items with viewport offset
     this.sprites.forEach((sprite) => {
       if (this.isInViewport(sprite.x, sprite.y)) {
         sprite.update(timestamp);
@@ -116,7 +114,6 @@ class GameState {
     this.avatar.update(timestamp);
     this.avatar.draw(this.ctx, this.viewportX, this.viewportY);
 
-    // Draw portals (if in debug mode or if they should be visible)
     this.portals.forEach((portal) => {
       if (this.isInViewport(portal.x, portal.y)) {
         portal.update(timestamp);
@@ -124,9 +121,8 @@ class GameState {
       }
     });
 
-    // If a dialog is active, update and draw it - now treating it as a GameElement
     if (this.dialog) {
-      this.dialog.update(timestamp); // Pass timestamp instead of deltaTime
+      this.dialog.update(timestamp);
       this.dialog.draw(this.ctx, this.viewportX, this.viewportY);
     }
 
@@ -134,16 +130,16 @@ class GameState {
   }
 
   async initialize() {
+    console.log("Initializing game...");
     this.titleScreen = new TitleScreen(
       "bitsy but better",
       "a little fun demo",
       "Press ENTER to start"
     );
 
-    // Load the first world
     await this.loadWorld("images/world1.gif");
 
-    this.avatar = new Avatar(8, 8, "images/avatar2.gif");
+    this.avatar = new Avatar(36, 4, "images/avatar2.gif");
     this.items.push(
       new Item(12, 12, "images/coin.png", "coin", "You picked up a coin!")
     );
@@ -151,77 +147,19 @@ class GameState {
     this.worldTiles.push(new ExitTile(15, 15, "images/door.png"));
     this.centerViewportOnAvatar();
 
+    console.log("Game initialized.");
+
     this.setupInputHandlers();
     this.resizeCanvas();
     window.addEventListener("resize", () => this.resizeCanvas());
     requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
   }
 
-  async loadRoom(roomNumber) {
-    try {
-      // Clear existing world data
-      this.worldTiles = [];
-      this.portals = [];
-      this.currentRoomNumber = roomNumber;
-
-      // Load the world GIF for this room
-      await this.loadWorld(`images/world${roomNumber}.gif`);
-
-      console.log(`Room ${roomNumber} loaded successfully`);
-      return true;
-    } catch (error) {
-      console.error(`Failed to load room ${roomNumber}:`, error);
-      return false;
-    }
-  }
-
-  async changeRoom(roomNumber) {
-    // Try to load the next room
-    const success = await this.loadRoom(roomNumber);
-
-    if (success) {
-      // Reset player position based on which direction they came from
-      const prevRoomNum = this.currentRoomNumber;
-
-      if (roomNumber > prevRoomNum) {
-        // Came from previous room - position player at a backward portal
-        const backPortal = this.portals.find((p) => !p.isForward);
-        if (backPortal) {
-          this.avatar.x = backPortal.x;
-          this.avatar.y = backPortal.y;
-        } else {
-          // Default position if no backward portal
-          this.avatar.x = 8;
-          this.avatar.y = 8;
-        }
-      } else {
-        // Came from next room - position player at a forward portal
-        const forwardPortal = this.portals.find((p) => p.isForward);
-        if (forwardPortal) {
-          this.avatar.x = forwardPortal.x;
-          this.avatar.y = forwardPortal.y;
-        } else {
-          // Default position if no forward portal
-          this.avatar.x = 8;
-          this.avatar.y = 8;
-        }
-      }
-
-      this.centerViewportOnAvatar();
-    } else if (roomNumber > this.currentRoomNumber) {
-      // If we tried to go forward but the room doesn't exist, show ending screen
-      this.showEndingScreen();
-    }
-    // If we tried to go backward but the room doesn't exist, do nothing
-  }
-
   async loadWorld(worldGifUrl) {
     return new Promise((resolve, reject) => {
       try {
-        // Load the GIF
         const tempImage = document.createElement("img");
         tempImage.onload = () => {
-          // Set up SuperGif
           const rub = new SuperGif({
             gif: tempImage,
             auto_play: false,
@@ -236,104 +174,10 @@ class GameState {
               return;
             }
 
-            // First frame is the background image
             rub.move_to(0);
             const bgCanvas = rub.get_canvas();
             this.backgroundImage = new Image();
             this.backgroundImage.src = bgCanvas.toDataURL();
-
-            // Second frame contains the tilemap for walls (red pixels)
-            rub.move_to(1);
-            const tilemapCanvas = rub.get_canvas();
-            const tilemapCtx = tilemapCanvas.getContext("2d");
-            const imageData = tilemapCtx.getImageData(
-              0,
-              0,
-              tilemapCanvas.width,
-              tilemapCanvas.height
-            ).data;
-
-            // Scale factors to map from tilemap coords to world coords
-            const xScale = WORLD_SIZE / tilemapCanvas.width;
-            const yScale = WORLD_SIZE / tilemapCanvas.height;
-
-            // Parse the tilemap frame - only check for red pixels (walls)
-            for (let y = 0; y < tilemapCanvas.height; y++) {
-              for (let x = 0; x < tilemapCanvas.width; x++) {
-                const pixelIndex = (y * tilemapCanvas.width + x) * 4;
-                const red = imageData[pixelIndex]; // Red component
-                const alpha = imageData[pixelIndex + 3]; // Alpha component
-
-                // Skip transparent pixels
-                if (alpha === 0) {
-                  continue;
-                }
-
-                // Calculate world coordinates based on scale
-                const worldX = Math.floor(x * xScale);
-                const worldY = Math.floor(y * yScale);
-
-                // Create walls from red pixels
-                if (red > 0) {
-                  const tile = new Tile(
-                    worldX,
-                    worldY,
-                    `images/tile${red}.png`,
-                    true
-                  );
-                  this.worldTiles.push(tile);
-                }
-              }
-            }
-
-            // Process all remaining frames for portals
-            for (let frameIndex = 2; frameIndex < frameCount; frameIndex++) {
-              const portalId = frameIndex - 2; // Portal ID starts from 0
-
-              rub.move_to(frameIndex);
-              const portalCanvas = rub.get_canvas();
-              const portalCtx = portalCanvas.getContext("2d");
-              const portalData = portalCtx.getImageData(
-                0,
-                0,
-                portalCanvas.width,
-                portalCanvas.height
-              ).data;
-
-              // Look for blue pixels in this frame which represent a portal
-              for (let y = 0; y < portalCanvas.height; y++) {
-                for (let x = 0; x < portalCanvas.width; x++) {
-                  const pixelIndex = (y * portalCanvas.width + x) * 4;
-                  const red = portalData[pixelIndex];
-                  const green = portalData[pixelIndex + 1];
-                  const blue = portalData[pixelIndex + 2];
-                  const alpha = portalData[pixelIndex + 3];
-
-                  // Skip non-blue or transparent pixels
-                  if (alpha === 0 || blue < 200) {
-                    continue;
-                  }
-
-                  // Calculate world coordinates
-                  const worldX = Math.floor(x * xScale);
-                  const worldY = Math.floor(y * yScale);
-
-                  // Create portal with ID from frame number
-                  const nextRoom = this.currentRoomNumber + 1;
-                  const portal = new Portal(
-                    worldX,
-                    worldY,
-                    nextRoom,
-                    true,
-                    portalId
-                  );
-                  this.portals.push(portal);
-                  console.log(
-                    `Added portal #${portalId} at ${worldX},${worldY}`
-                  );
-                }
-              }
-            }
 
             resolve();
           });
@@ -397,7 +241,7 @@ class GameState {
           }
           return;
         }
-        return; // Don't process other inputs when on title screen
+        return;
       }
 
       if (this.dialog) {
@@ -412,7 +256,6 @@ class GameState {
         return;
       }
 
-      // Handle game controls
       let moved = false;
       switch (e.code) {
         case "ArrowUp":
@@ -431,21 +274,21 @@ class GameState {
         case "KeyD":
           moved = this.avatar.move(1, 0, this);
           break;
-        case "KeyE": // Zoom in
+        case "KeyE":
           if (GRID_SIZE > 4) {
             GRID_SIZE -= 4;
             this.resizeCanvas();
             this.centerViewportOnAvatar();
           }
           break;
-        case "KeyQ": // Zoom out
+        case "KeyQ":
           if (GRID_SIZE < WORLD_SIZE) {
             GRID_SIZE += 4;
             this.resizeCanvas();
             this.centerViewportOnAvatar();
           }
           break;
-        case "Escape": // Return to title screen
+        case "Escape":
           this.showTitleScreen();
           break;
       }
@@ -489,31 +332,6 @@ class GameState {
     }
   }
 }
-
-// // Let's modify the Avatar's move method to check for portals
-// class Avatar extends GameElement {
-//   move(dx, dy, gameState) {
-//     const newX = this.x + dx;
-//     const newY = this.y + dy;
-
-//     // Check for portals first
-//     const portal = gameState.portals.find(
-//       (portal) => portal.x === newX && portal.y === newY
-//     );
-//     if (portal) {
-//       portal.interact(gameState);
-//       return false; // Movement handled by room change
-//     }
-
-//     // Existing movement logic
-//     if (gameState.isInViewport(newX, newY)) {
-//       this.x = newX;
-//       this.y = newY;
-//       return true;
-//     }
-//     return false;
-//   }
-// }
 
 const game = new GameState();
 game.initialize().catch(console.error);
