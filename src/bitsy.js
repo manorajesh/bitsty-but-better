@@ -1,5 +1,5 @@
 let GRID_SIZE = 16;
-const WORLD_SIZE = 64;
+const WORLD_SIZE = 50;
 let CELL_SIZE;
 
 function isDebugMode() {
@@ -59,12 +59,12 @@ class GameState {
       requestAnimationFrame((ts) => this.gameLoop(ts));
       return;
     }
-    const targetX = 15;
-    const targetY = 15;
-    if (this.avatar.x === targetX && this.avatar.y === targetY) {
-      this.showEndingScreen();
-      return;
-    }
+    // const targetX = 15;
+    // const targetY = 15;
+    // if (this.avatar.x === targetX && this.avatar.y === targetY) {
+    //   this.showEndingScreen();
+    //   return;
+    // }
 
     if (this.backgroundImage) {
       const bgScaleX = this.backgroundImage.width / WORLD_SIZE;
@@ -128,36 +128,6 @@ class GameState {
 
     requestAnimationFrame((ts) => this.gameLoop(ts));
   }
-
-  // async initialize() {
-  //   console.log("Initializing game...");
-  //   const gameManager = new NarrativeGameManager(
-  //     "AIzaSyDds9iN85cgeUisvbNUe4mDZlRp663kERc"
-  //   );
-
-  //   this.titleScreen = new TitleScreen(
-  //     "bitsy but better",
-  //     "a little fun demo",
-  //     "Press ENTER to start"
-  //   );
-
-  //   await this.loadWorld("images/world1.gif");
-
-  //   this.avatar = new Avatar(36, 4, "images/avatar2.gif");
-  //   this.items.push(
-  //     new Item(12, 12, "images/coin.png", "coin", "You picked up a coin!")
-  //   );
-  //   this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
-  //   this.worldTiles.push(new ExitTile(15, 15, "images/door.png"));
-  //   this.centerViewportOnAvatar();
-
-  //   console.log("Game initialized.");
-
-  //   this.setupInputHandlers();
-  //   this.resizeCanvas();
-  //   window.addEventListener("resize", () => this.resizeCanvas());
-  //   requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
-  // }
 
   async loadWorld(worldGifUrl) {
     return new Promise((resolve, reject) => {
@@ -337,8 +307,20 @@ class GameState {
   }
 
   getPixelColor(x, y) {
-    const canvasX = (x - this.viewportX) * CELL_SIZE;
-    const canvasY = (y - this.viewportY) * CELL_SIZE;
+    const canvasX = Math.floor(
+      (x - this.viewportX) * CELL_SIZE + CELL_SIZE / 2
+    );
+    const canvasY = Math.floor(
+      (y - this.viewportY) * CELL_SIZE + CELL_SIZE / 2
+    );
+    if (
+      canvasX < 0 ||
+      canvasX >= this.canvas.width ||
+      canvasY < 0 ||
+      canvasY >= this.canvas.height
+    ) {
+      return { r: 0, g: 0, b: 0 };
+    }
 
     const imageData = this.ctx.getImageData(canvasX, canvasY, 1, 1);
     const [r, g, b] = imageData.data;
@@ -424,13 +406,16 @@ class GameState {
                       );
                       portal.isVisible = true; // Make the portal visible
                       this.portals.push(portal);
-                      console.log(
-                        `Added portal at ${x},${y} to room ${targetRoomNumber} (Portal ID: ${portalId})`
-                      );
+                      // console.log(
+                      //   `Added portal at ${x},${y} to room ${targetRoomNumber} (Portal ID: ${portalId})`
+                      // );
                     }
                   }
                 }
               }
+              console.log(
+                `Loaded ${this.portals.length} portals from ${worldGifUrl}`
+              );
             }
 
             resolve();
@@ -450,14 +435,10 @@ class GameState {
     });
   }
 
-  // New method to add to GameState class for changing rooms
   async changeRoom(roomNumber) {
-    // Save current room items state if needed
     if (this.currentRoomState === undefined) {
       this.currentRoomState = {};
     }
-
-    // Save the state of the current room
     this.currentRoomState[this.currentRoomNumber] = {
       items: this.items.map((item) => ({
         x: item.x,
@@ -471,31 +452,20 @@ class GameState {
         dialog: sprite.dialog,
       })),
     };
-
-    // Clear existing portals
     this.portals = [];
-
-    // Keep track of the current room
     this.currentRoomNumber = roomNumber;
 
-    // Get the world GIF for this room
     const worldGifUrl = `images/world${roomNumber}.gif`;
 
     console.log(`Changing to room ${roomNumber}, loading ${worldGifUrl}`);
 
-    // Load the world image
     await this.loadWorld(worldGifUrl);
 
-    // Reset items and sprites for the new room
-    // This could be customized based on the room number
     this.items = [];
     this.sprites = [];
-
-    // If we have saved state for this room, restore it
     if (this.currentRoomState[roomNumber]) {
       const roomState = this.currentRoomState[roomNumber];
 
-      // Restore items
       this.items = roomState.items.map((itemData) => {
         const item = new Item(
           itemData.x,
@@ -507,7 +477,6 @@ class GameState {
         return item;
       });
 
-      // Restore sprites
       this.sprites = roomState.sprites.map((spriteData) => {
         return new Sprite(
           spriteData.x,
@@ -517,7 +486,6 @@ class GameState {
         );
       });
     } else {
-      // Default items and sprites for new rooms
       if (roomNumber === 2) {
         this.items.push(
           new Item(8, 8, "images/key.png", "key", "You found a key!")
@@ -529,8 +497,6 @@ class GameState {
       }
     }
 
-    // Set avatar position based on room
-    // This could be customized for each room or portal
     const avatarPositions = {
       1: { x: 36, y: 4 },
       2: { x: 5, y: 5 },
@@ -542,15 +508,11 @@ class GameState {
     const pos = avatarPositions[roomNumber] || { x: 5, y: 5 };
     this.avatar.x = pos.x;
     this.avatar.y = pos.y;
-
-    // Load portals from the GIF frames
     await this.loadPortalsFromGif(worldGifUrl);
 
-    // Center viewport on avatar
     this.centerViewportOnAvatar();
   }
 
-  // Modifications to the initialize method in GameState
   async initialize() {
     console.log("Initializing game...");
     const gameManager = new NarrativeGameManager(
@@ -562,26 +524,22 @@ class GameState {
       "Press ENTER to start"
     );
 
-    // Initialize the current room number
     this.currentRoomNumber = 1;
-
-    // Load the first world
     await this.loadWorld("images/world1.gif");
 
-    this.avatar = new Avatar(36, 4, "images/avatar2.gif");
+    this.avatar = new Avatar(25, 4, "images/yellow_blob.gif");
     this.items.push(
       new Item(
-        12,
-        12,
+        30,
+        5,
         "images/sparkle_big.gif",
         "sparkle",
-        "You collected a sparkle!"
+        "You found a sparkle!"
       )
     );
-    this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
+    // this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
     this.worldTiles.push(new ExitTile(15, 15, "images/door.png"));
 
-    // Load portals from the first world GIF
     await this.loadPortalsFromGif("images/world1.gif");
 
     this.centerViewportOnAvatar();
