@@ -241,7 +241,6 @@ class GameState {
           this.titleScreen.visible = false;
           this.gameStarted = true;
 
-          // Show premise input after title screen
           this.showPremiseInput();
           return;
         }
@@ -274,7 +273,6 @@ class GameState {
           if (isFinished) {
             this.dialog = null;
 
-            // If player was at a portal with a choice, return to normal gameplay
             if (this.currentPortal) {
               this.currentPortal = null;
             }
@@ -302,9 +300,14 @@ class GameState {
           moved = this.avatar.move(1, 0, this);
           break;
         case "KeyT":
-          // Make choice if player is at a portal
           if (this.currentPortal) {
             this.makeNarrativeChoice(this.currentPortal.portalId);
+          } else if (this.currentNarrativeState) {
+            this.dialog = new DialogBox(
+              "You need to be at a portal to make a choice.",
+              false,
+              false
+            );
           }
           break;
         case "KeyE":
@@ -334,27 +337,22 @@ class GameState {
       if (moved) {
         this.centerViewportOnAvatar();
 
-        // Check if player is at a portal position
         const portal = this.portals.find(
           (portal) => portal.x === this.avatar.x && portal.y === this.avatar.y
         );
 
         if (portal) {
-          // Check if this is a narrative portal or a room-change portal
-          if (portal.targetRoomNumber === -1 && this.currentNarrativeState) {
+          if (portal.targetRoom === -1 && this.currentNarrativeState) {
             console.log("Narrative portal found:", portal);
-            // This is a narrative portal
             const choiceIndex = portal.portalId;
             if (choiceIndex < this.currentNarrativeState.choices.length) {
               const choice = this.currentNarrativeState.choices[choiceIndex];
               this.currentPortal = portal;
 
-              // Enhanced logging to debug choice display
               console.log("Displaying choice:", choice);
               console.log("Choice title:", choice.title);
               console.log("Choice description:", choice.description);
 
-              // Create dialog with more visible formatting
               this.dialog = new DialogBox(
                 `${choice.title || "Option " + (choiceIndex + 1)}\n\n${
                   choice.description || "No description available."
@@ -367,8 +365,8 @@ class GameState {
                 `Invalid choice index: ${choiceIndex}. Only ${this.currentNarrativeState.choices.length} choices available.`
               );
             }
-          } else if (portal.targetRoomNumber > 0) {
-            this.changeRoom(portal.targetRoomNumber);
+          } else if (portal.targetRoom > 0) {
+            this.changeRoom(portal.targetRoom);
           }
         }
       }
@@ -468,7 +466,6 @@ class GameState {
               );
               const data = imageData.data;
 
-              // Calculate scaling factors
               const pixelWidth = canvas.width / WORLD_SIZE;
               const pixelHeight = canvas.height / WORLD_SIZE;
 
@@ -739,7 +736,6 @@ class GameState {
               );
               const data = imageData.data;
 
-              // Calculate scaling factors
               const pixelWidth = canvas.width / WORLD_SIZE;
               const pixelHeight = canvas.height / WORLD_SIZE;
 
@@ -747,14 +743,11 @@ class GameState {
 
               for (let y = 0; y < WORLD_SIZE; y++) {
                 for (let x = 0; x < WORLD_SIZE; x++) {
-                  // Calculate the pixel location in the image (center of the tile)
                   const centerX = Math.floor((x + 0.5) * pixelWidth);
                   const centerY = Math.floor((y + 0.5) * pixelHeight);
 
-                  // Get the index in the imageData array
                   const index = (centerY * canvas.width + centerX) * 4;
 
-                  // Check if this is a blue pixel (portal)
                   if (
                     data[index] === 0 &&
                     data[index + 1] === 0 &&
@@ -764,14 +757,7 @@ class GameState {
                     if (!processedLocations.has(locationKey)) {
                       processedLocations.add(locationKey);
 
-                      // Add a portal at this location
-                      const portal = new Portal(
-                        x,
-                        y,
-                        -1, // We're not changing rooms, just making choices
-                        true,
-                        choiceIndex
-                      );
+                      const portal = new Portal(x, y, -1, true, choiceIndex);
                       portal.isVisible = true;
                       this.portals.push(portal);
                     }
