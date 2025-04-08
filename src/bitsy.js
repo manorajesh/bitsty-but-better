@@ -129,31 +129,35 @@ class GameState {
     requestAnimationFrame((ts) => this.gameLoop(ts));
   }
 
-  async initialize() {
-    console.log("Initializing game...");
-    this.titleScreen = new TitleScreen(
-      "bitsy but better",
-      "a little fun demo",
-      "Press ENTER to start"
-    );
+  // async initialize() {
+  //   console.log("Initializing game...");
+  //   const gameManager = new NarrativeGameManager(
+  //     "AIzaSyDds9iN85cgeUisvbNUe4mDZlRp663kERc"
+  //   );
 
-    await this.loadWorld("images/world1.gif");
+  //   this.titleScreen = new TitleScreen(
+  //     "bitsy but better",
+  //     "a little fun demo",
+  //     "Press ENTER to start"
+  //   );
 
-    this.avatar = new Avatar(36, 4, "images/avatar2.gif");
-    this.items.push(
-      new Item(12, 12, "images/coin.png", "coin", "You picked up a coin!")
-    );
-    this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
-    this.worldTiles.push(new ExitTile(15, 15, "images/door.png"));
-    this.centerViewportOnAvatar();
+  //   await this.loadWorld("images/world1.gif");
 
-    console.log("Game initialized.");
+  //   this.avatar = new Avatar(36, 4, "images/avatar2.gif");
+  //   this.items.push(
+  //     new Item(12, 12, "images/coin.png", "coin", "You picked up a coin!")
+  //   );
+  //   this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
+  //   this.worldTiles.push(new ExitTile(15, 15, "images/door.png"));
+  //   this.centerViewportOnAvatar();
 
-    this.setupInputHandlers();
-    this.resizeCanvas();
-    window.addEventListener("resize", () => this.resizeCanvas());
-    requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
-  }
+  //   console.log("Game initialized.");
+
+  //   this.setupInputHandlers();
+  //   this.resizeCanvas();
+  //   window.addEventListener("resize", () => this.resizeCanvas());
+  //   requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+  // }
 
   async loadWorld(worldGifUrl) {
     return new Promise((resolve, reject) => {
@@ -330,6 +334,264 @@ class GameState {
     if (this.titleScreen) {
       this.titleScreen.visible = true;
     }
+  }
+
+  getPixelColor(x, y) {
+    const canvasX = (x - this.viewportX) * CELL_SIZE;
+    const canvasY = (y - this.viewportY) * CELL_SIZE;
+
+    const imageData = this.ctx.getImageData(canvasX, canvasY, 1, 1);
+    const [r, g, b] = imageData.data;
+
+    return { r, g, b };
+  }
+
+  async loadPortalsFromGif(worldGifUrl) {
+    return new Promise((resolve, reject) => {
+      try {
+        const tempImage = document.createElement("img");
+        tempImage.onload = () => {
+          const rub = new SuperGif({
+            gif: tempImage,
+            auto_play: false,
+          });
+
+          rub.load(() => {
+            const frameCount = rub.get_length();
+            if (frameCount < 3) {
+              console.warn(
+                `GIF has less than 3 frames, no portals will be loaded: ${worldGifUrl}`
+              );
+              resolve();
+              return;
+            }
+
+            // Start from the third frame (index 2)
+            for (
+              let frameIndex = 2;
+              frameIndex < Math.min(frameCount, 7);
+              frameIndex++
+            ) {
+              // Limit to 5 portals (frames 2-6)
+              rub.move_to(frameIndex);
+              const canvas = rub.get_canvas();
+              const ctx = canvas.getContext("2d");
+              const targetRoomNumber = frameIndex - 1; // Map to room numbers 2, 3, 4, etc.
+
+              // Scan the entire image for blue pixels (portals)
+              const imageData = ctx.getImageData(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
+              const data = imageData.data;
+
+              // Calculate scaling factors
+              const pixelWidth = canvas.width / WORLD_SIZE;
+              const pixelHeight = canvas.height / WORLD_SIZE;
+
+              // Track processed portal locations to avoid duplicates
+              const processedLocations = new Set();
+
+              for (let y = 0; y < WORLD_SIZE; y++) {
+                for (let x = 0; x < WORLD_SIZE; x++) {
+                  // Calculate the pixel location in the image (center of the tile)
+                  const centerX = Math.floor((x + 0.5) * pixelWidth);
+                  const centerY = Math.floor((y + 0.5) * pixelHeight);
+
+                  // Get the index in the imageData array
+                  const index = (centerY * canvas.width + centerX) * 4;
+
+                  // Check if this is a blue pixel (portal)
+                  if (
+                    data[index] === 0 &&
+                    data[index + 1] === 0 &&
+                    data[index + 2] === 255
+                  ) {
+                    const locationKey = `${x},${y}`;
+                    if (!processedLocations.has(locationKey)) {
+                      processedLocations.add(locationKey);
+
+                      // Add a portal at this location
+                      const portalId = this.portals.length;
+                      const portal = new Portal(
+                        x,
+                        y,
+                        targetRoomNumber,
+                        true,
+                        portalId
+                      );
+                      portal.isVisible = true; // Make the portal visible
+                      this.portals.push(portal);
+                      console.log(
+                        `Added portal at ${x},${y} to room ${targetRoomNumber} (Portal ID: ${portalId})`
+                      );
+                    }
+                  }
+                }
+              }
+            }
+
+            resolve();
+          });
+        };
+
+        tempImage.onerror = () => {
+          reject(
+            new Error(`Failed to load world GIF for portals: ${worldGifUrl}`)
+          );
+        };
+
+        tempImage.src = worldGifUrl;
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // New method to add to GameState class for changing rooms
+  async changeRoom(roomNumber) {
+    // Save current room items state if needed
+    if (this.currentRoomState === undefined) {
+      this.currentRoomState = {};
+    }
+
+    // Save the state of the current room
+    this.currentRoomState[this.currentRoomNumber] = {
+      items: this.items.map((item) => ({
+        x: item.x,
+        y: item.y,
+        type: item.type,
+        collected: item.collected,
+      })),
+      sprites: this.sprites.map((sprite) => ({
+        x: sprite.x,
+        y: sprite.y,
+        dialog: sprite.dialog,
+      })),
+    };
+
+    // Clear existing portals
+    this.portals = [];
+
+    // Keep track of the current room
+    this.currentRoomNumber = roomNumber;
+
+    // Get the world GIF for this room
+    const worldGifUrl = `images/world${roomNumber}.gif`;
+
+    console.log(`Changing to room ${roomNumber}, loading ${worldGifUrl}`);
+
+    // Load the world image
+    await this.loadWorld(worldGifUrl);
+
+    // Reset items and sprites for the new room
+    // This could be customized based on the room number
+    this.items = [];
+    this.sprites = [];
+
+    // If we have saved state for this room, restore it
+    if (this.currentRoomState[roomNumber]) {
+      const roomState = this.currentRoomState[roomNumber];
+
+      // Restore items
+      this.items = roomState.items.map((itemData) => {
+        const item = new Item(
+          itemData.x,
+          itemData.y,
+          `images/${itemData.type}.png`,
+          itemData.type
+        );
+        item.collected = itemData.collected;
+        return item;
+      });
+
+      // Restore sprites
+      this.sprites = roomState.sprites.map((spriteData) => {
+        return new Sprite(
+          spriteData.x,
+          spriteData.y,
+          "images/sprite.png",
+          spriteData.dialog
+        );
+      });
+    } else {
+      // Default items and sprites for new rooms
+      if (roomNumber === 2) {
+        this.items.push(
+          new Item(8, 8, "images/key.png", "key", "You found a key!")
+        );
+      } else if (roomNumber === 3) {
+        this.sprites.push(
+          new Sprite(5, 5, "images/npc.png", "Welcome to room 3!")
+        );
+      }
+    }
+
+    // Set avatar position based on room
+    // This could be customized for each room or portal
+    const avatarPositions = {
+      1: { x: 36, y: 4 },
+      2: { x: 5, y: 5 },
+      3: { x: 10, y: 10 },
+      4: { x: 20, y: 20 },
+      5: { x: 30, y: 30 },
+    };
+
+    const pos = avatarPositions[roomNumber] || { x: 5, y: 5 };
+    this.avatar.x = pos.x;
+    this.avatar.y = pos.y;
+
+    // Load portals from the GIF frames
+    await this.loadPortalsFromGif(worldGifUrl);
+
+    // Center viewport on avatar
+    this.centerViewportOnAvatar();
+  }
+
+  // Modifications to the initialize method in GameState
+  async initialize() {
+    console.log("Initializing game...");
+    const gameManager = new NarrativeGameManager(
+      "AIzaSyDds9iN85cgeUisvbNUe4mDZlRp663kERc"
+    );
+    this.titleScreen = new TitleScreen(
+      "bitsy but better",
+      "a little fun demo",
+      "Press ENTER to start"
+    );
+
+    // Initialize the current room number
+    this.currentRoomNumber = 1;
+
+    // Load the first world
+    await this.loadWorld("images/world1.gif");
+
+    this.avatar = new Avatar(36, 4, "images/avatar2.gif");
+    this.items.push(
+      new Item(
+        12,
+        12,
+        "images/sparkle_big.gif",
+        "sparkle",
+        "You collected a sparkle!"
+      )
+    );
+    this.sprites.push(new Sprite(10, 10, "images/cat.png", "Meow! I'm a cat."));
+    this.worldTiles.push(new ExitTile(15, 15, "images/door.png"));
+
+    // Load portals from the first world GIF
+    await this.loadPortalsFromGif("images/world1.gif");
+
+    this.centerViewportOnAvatar();
+
+    console.log("Game initialized.");
+
+    this.setupInputHandlers();
+    this.resizeCanvas();
+    window.addEventListener("resize", () => this.resizeCanvas());
+    requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
   }
 }
 

@@ -113,10 +113,14 @@ class Avatar extends GameElement {
   move(dx, dy, gameState) {
     const newX = this.x + dx;
     const newY = this.y + dy;
+
     const sprite = gameState.sprites.find(
       (sprite) => sprite.x === newX && sprite.y === newY
     );
-
+    if (sprite) {
+      sprite.interact(gameState);
+      return false;
+    }
     const portal = gameState.portals.find(
       (portal) => portal.x === newX && portal.y === newY
     );
@@ -125,10 +129,6 @@ class Avatar extends GameElement {
       return false;
     }
 
-    if (sprite) {
-      sprite.interact(gameState);
-      return false;
-    }
     const item = gameState.items.find(
       (item) => item.x === newX && item.y === newY && !item.collected
     );
@@ -136,14 +136,10 @@ class Avatar extends GameElement {
       item.collect(gameState);
       this.inventory.push(item);
     }
-
-    // const wallTile = gameState.worldTiles.find(
-    //   (tile) => tile.x === newX && tile.y === newY && tile.isWall
-    // );
-    // if (wallTile) {
-    //   return;
-    // }
-
+    const { r, g, b } = gameState.getPixelColor(newX, newY);
+    if (r === 46 && g === 39 && b === 102) {
+      return false;
+    }
     if (newX >= 0 && newX < WORLD_SIZE && newY >= 0 && newY < WORLD_SIZE) {
       this.x = newX;
       this.y = newY;
@@ -218,10 +214,7 @@ class Item extends GameElement {
 
 class Portal extends GameElement {
   constructor(x, y, targetRoom, isForward = true, portalId = -1) {
-    const imageUrl = isForward
-      ? "images/forward_portal.png"
-      : "images/backward_portal.png";
-    super(x, y, imageUrl);
+    super(x, y);
     this.targetRoom = targetRoom;
     this.isForward = isForward;
     this.isVisible = false;
